@@ -292,21 +292,42 @@ export function createSarvamSpeech(key: string, sttModel: string, ttsModel: stri
     },
 
     async speak(text, language, signal, voice) {
-      const named = ttsModel.startsWith('bulbul:v3') && (voice === 'priya' || voice === 'shubh') ? voice : speaker;
-      // Dashes make the voice stop mid-sentence for a long beat; a comma reads naturally.
-      const spoken = text.replace(/\s*[—–]\s*/g, ', ').slice(0, 600);
-      const body = JSON.stringify({
-        text: spoken,
-        language_code: language,
-        model: ttsModel,
-        speaker: named,
-        pace: 0.95,
-      });
+      const body = JSON.stringify(ttsBody(text, language, voice));
       const parsed = z
         .object({ audios: z.array(z.string()).min(1) })
         .safeParse(await post(key, '/text-to-speech', body, signal));
       if (!parsed.success) throw new ProviderError('provider_bad_output', 'Unexpected speech response.');
       return { audioBase64: parsed.data.audios[0], mime: 'audio/wav' };
     },
+
+    /** Same voice as speak(), as an MP3 byte stream: audio starts arriving in ~0.5 s instead of ~1.5 s. */
+    async speakStream(text, language, signal, voice) {
+      let res: Response;
+      try {
+        res = await fetch(BASE + '/text-to-speech/stream', {
+          method: 'POST',
+          headers: { 'api-subscription-key': key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...ttsBody(text, language, voice), output_audio_codec: 'mp3', speech_sample_rate: 24000 }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+        });
+      } catch (e) {
+        if ((e as Error).name === 'TimeoutError') throw new ProviderError('timeout', 'The provider took too long.');
+        throw new ProviderError('provider_failed', 'Could not reach the provider.');
+      }
+      if (!res.ok || !res.body) throw new ProviderError('provider_failed', `Provider returned HTTP ${res.status}.`);
+      return res.body;
+    },
   };
+
+  function ttsBody(text: string, language: string, voice?: string) {
+    const named = ttsModel.startsWith('bulbul:v3') && (voice === 'priya' || voice === 'shubh') ? voice : speaker;
+    return {
+      // Dashes make the voice stop mid-sentence for a long beat; a comma reads naturally.
+      text: text.replace(/\s*[—–]\s*/g, ', ').slice(0, 600),
+      language_code: language,
+      model: ttsModel,
+      speaker: named,
+      pace: 0.95,
+    };
+  }
 }

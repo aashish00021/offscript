@@ -201,3 +201,31 @@ describe('spoken replies by language', () => {
     ctx.server.close();
   });
 });
+
+describe('streamed speech', () => {
+  it('pipes MP3 bytes through and applies the same language rules', async () => {
+    const bytes = new Uint8Array([0xff, 0xf3, 0x44, 0xc4]);
+    const speech = {
+      sttModel: 'fake',
+      ttsModel: 'fake',
+      transcribe: async () => 'x',
+      speak: async () => ({ audioBase64: 'AA==', mime: 'audio/wav' }),
+      speakStream: async () =>
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(bytes.slice(0, 2));
+            c.enqueue(bytes.slice(2));
+            c.close();
+          },
+        }),
+    };
+    const ctx = await serve({ ...providersFromEnv({}), chat: fakeChat(), speech });
+    const ok = await post(ctx.base, '/api/speech/stream', { text: 'Saturday?', language: 'en-IN', voice: 'shubh' });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('content-type')).toBe('audio/mpeg');
+    expect(new Uint8Array(await ok.arrayBuffer())).toEqual(bytes);
+    const ur = await post(ctx.base, '/api/speech/stream', { text: 'سلام', language: 'ur-IN' });
+    expect((await ur.json()).error).toBe('speech_unsupported');
+    ctx.server.close();
+  });
+});

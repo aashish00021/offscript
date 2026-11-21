@@ -59,6 +59,26 @@ export const api = {
     }),
   speak: (text: string, language: string, signal: AbortSignal, voice?: string) =>
     postJson<{ audioBase64: string; mime: string }>('/api/speech/speak', { text, language, voice }, signal),
+  /** MP3 bytes as Sarvam synthesises them. */
+  speakStream: async (text: string, language: string, signal: AbortSignal, voice?: string) => {
+    let res: Response;
+    try {
+      res = await fetch('/api/speech/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language, voice }),
+        signal,
+      });
+    } catch (e) {
+      if (isAbort(e)) throw e;
+      throw new ApiError('network', 'Could not reach the local server.');
+    }
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => null);
+      throw new ApiError(body?.error ?? 'http_error', body?.message ?? `Request failed (HTTP ${res.status}).`);
+    }
+    return res.body;
+  },
 };
 
 export const newId = (prefix = '') => prefix + crypto.randomUUID();

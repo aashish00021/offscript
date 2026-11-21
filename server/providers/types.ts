@@ -30,6 +30,8 @@ export interface SpeechProvider {
   ttsModel: string;
   transcribe(audio: Buffer, mime: string, language: string, signal: AbortSignal): Promise<string>;
   speak(text: string, language: string, signal: AbortSignal, voice?: string): Promise<{ audioBase64: string; mime: string }>;
+  /** MP3 bytes as they are synthesised, for playback that starts before synthesis finishes. */
+  speakStream?(text: string, language: string, signal: AbortSignal, voice?: string): Promise<ReadableStream<Uint8Array>>;
 }
 
 export class ProviderError extends Error {

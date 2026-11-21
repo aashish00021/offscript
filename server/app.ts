@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 import {
@@ -142,20 +143,41 @@ export function createApp(providers: Providers, opts: { log?: (line: string) => 
     },
   );
 
+  const speakBody = z.object({
+    text: z.string().trim().min(1).max(600),
+    language: voiceLanguageCode,
+    voice: z.enum(['priya', 'shubh']).optional(),
+  });
+  /** Parses a speak request, or answers it with the right error and returns null. */
+  function parseSpeak(req: Request, res: Response) {
+    const parsed = speakBody.safeParse(req.body);
+    if (parsed.success) return parsed.data;
+    const lang = languageCode.safeParse(req.body?.language);
+    if (lang.success) sendError(res, 400, 'speech_unsupported', 'Spoken replies are not available in this language.');
+    else sendError(res, 400, 'invalid_request', 'Request did not match the expected shape.');
+    return null;
+  }
+
+  app.post('/api/speech/stream', express.json({ limit: '8kb' }), async (req, res) => {
+    if (!providers.speech?.speakStream) return speechOff(res);
+    const body = parseSpeak(req, res);
+    if (!body) return;
+    try {
+      const stream = await providers.speech.speakStream(body.text, body.language, abortOnClose(req, res), body.voice);
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'no-store');
+      Readable.fromWeb(stream as import('node:stream/web').ReadableStream).on('error', () => res.destroy()).pipe(res);
+    } catch (e) {
+      handleProviderError(res, e);
+    }
+  });
+
   app.post('/api/speech/speak', express.json({ limit: '8kb' }), async (req, res) => {
     if (!providers.speech) return speechOff(res);
-    const parsed = z
-      .object({ text: z.string().trim().min(1).max(600), language: voiceLanguageCode, voice: z.enum(['priya', 'shubh']).optional() })
-      .safeParse(req.body);
-    if (!parsed.success) {
-      const lang = languageCode.safeParse(req.body?.language);
-      if (lang.success) return sendError(res, 400, 'speech_unsupported', 'Spoken replies are not available in this language.');
-      return sendError(res, 400, 'invalid_request', 'Request did not match the expected shape.');
-    }
+    const body = parseSpeak(req, res);
+    if (!body) return;
     try {
-      res.json(
-        await providers.speech.speak(parsed.data.text, parsed.data.language, abortOnClose(req, res), parsed.data.voice),
-      );
+      res.json(await providers.speech.speak(body.text, body.language, abortOnClose(req, res), body.voice));
     } catch (e) {
       handleProviderError(res, e);
     }

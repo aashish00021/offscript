@@ -160,11 +160,18 @@ function base64ToBuffer(b64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+/** Progressive MP3 playback (Chrome, Edge, Firefox). Elsewhere we fall back to whole clips. */
+const canStream = () => typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported('audio/mpeg');
+
 /**
- * Spoken counterpart replies, played through one Web Audio context. Each reply is
- * split (see splitForSpeech); the parts are synthesised in parallel and scheduled
- * back to back, so the first sentence starts early and nothing is cut by swapping
- * an <audio> element's source. Text is always shown as well.
+ * Spoken counterpart replies, routed through one Web Audio context (which also feeds
+ * the voice orb's level meter).
+ *
+ * Preferred path: the reply is streamed as MP3 from /api/speech/stream into a
+ * MediaSource, so playback starts as soon as the first bytes arrive (~0.5 s).
+ * Fallback: the reply is split (see splitForSpeech), each part synthesised as a
+ * whole clip, and the parts scheduled back to back.
+ * Text is always shown as well.
  */
 export function useSpeaker(language: string) {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -173,6 +180,9 @@ export function useSpeaker(language: string) {
   const analyser = useRef<AnalyserNode | null>(null);
   const samples = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
+  const element = useRef<HTMLAudioElement | null>(null);
+  const objectUrl = useRef<string | null>(null);
+  const playing = useRef(false);
   const ctrl = useRef<AbortController | null>(null);
   /** Bumped on every speak/stop; work from an older run is discarded. */
   const run = useRef(0);
@@ -189,6 +199,16 @@ export function useSpeaker(language: string) {
     }
     return ctxRef.current;
   }, []);
+
+  /** One <audio> element for streamed replies, wired into the same analyser. */
+  const audioElement = useCallback(() => {
+    if (!element.current) {
+      const el = new Audio();
+      context().createMediaElementSource(el).connect(analyser.current!);
+      element.current = el;
+    }
+    return element.current;
+  }, [context]);
 
   /** Call inside a click/tap so the browser allows sound afterwards. */
   const unlock = useCallback(() => {
@@ -208,6 +228,13 @@ export function useSpeaker(language: string) {
       }
     }
     sources.current = [];
+    if (element.current) {
+      element.current.onended = null;
+      element.current.pause();
+    }
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = null;
+    playing.current = false;
     setSpeakingId(null);
   }, []);
 
@@ -217,7 +244,7 @@ export function useSpeaker(language: string) {
   const getLevel = useCallback(() => {
     const a = analyser.current;
     const buf = samples.current;
-    if (!a || !buf || !sources.current.length) return 0;
+    if (!a || !buf || !playing.current) return 0;
     a.getByteTimeDomainData(buf);
     let sum = 0;
     for (const n of buf) {
@@ -226,6 +253,79 @@ export function useSpeaker(language: string) {
     }
     return Math.min(1, Math.sqrt(sum / buf.length) * 5);
   }, []);
+
+  /** Resolves when `done` fires or this run is aborted. */
+  const until = (signal: AbortSignal, attach: (done: () => void) => void) =>
+    new Promise<void>((done) => {
+      attach(done);
+      signal.addEventListener('abort', () => done(), { once: true });
+    });
+
+  /** Streams MP3 into a MediaSource and starts playing on the first chunk. */
+  const playStream = useCallback(
+    async (text: string, voice: string | undefined, c: AbortController, mine: number) => {
+      const el = audioElement();
+      const ms = new MediaSource();
+      const url = URL.createObjectURL(ms);
+      objectUrl.current = url;
+      el.src = url;
+      await until(c.signal, (done) => ms.addEventListener('sourceopen', done, { once: true }));
+      if (run.current !== mine) return;
+      const buffer = ms.addSourceBuffer('audio/mpeg');
+      const body = await api.speakStream(text, language, c.signal, voice);
+      const reader = body.getReader();
+      let started = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (run.current !== mine) return void reader.cancel().catch(() => {});
+        if (done) break;
+        await until(c.signal, (ok) => {
+          buffer.addEventListener('updateend', ok, { once: true });
+          buffer.appendBuffer(value);
+        });
+        if (!started) {
+          started = true;
+          playing.current = true;
+          await el.play();
+        }
+      }
+      if (run.current !== mine) return;
+      if (ms.readyState === 'open' && !buffer.updating) ms.endOfStream();
+      if (started) await until(c.signal, (ok) => (el.onended = () => ok()));
+    },
+    [audioElement, language],
+  );
+
+  /** Fallback: whole clips per part, scheduled back to back in the AudioContext. */
+  const playClips = useCallback(
+    async (ctx: AudioContext, text: string, voice: string | undefined, c: AbortController, mine: number) => {
+      const parts = splitForSpeech(text, language);
+      const buffers = parts.map((part) =>
+        api.speak(part, language, c.signal, voice).then(({ audioBase64 }) => ctx.decodeAudioData(base64ToBuffer(audioBase64))),
+      );
+      buffers.forEach((b) => b.catch(() => {}));
+      let at = 0;
+      let last: AudioBufferSourceNode | null = null;
+      for (const pending of buffers) {
+        const buffer = await pending;
+        if (run.current !== mine) return;
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(analyser.current!);
+        at = Math.max(at, ctx.currentTime + 0.03);
+        src.start(at);
+        at += buffer.duration;
+        sources.current.push(src);
+        playing.current = true;
+        last = src;
+      }
+      if (last) {
+        const end = last;
+        await until(c.signal, (ok) => (end.onended = () => ok()));
+      }
+    },
+    [language],
+  );
 
   const speak = useCallback(
     async (id: string, text: string, voice?: string) => {
@@ -236,52 +336,24 @@ export function useSpeaker(language: string) {
       const ctx = context();
       if (ctx.state !== 'running') await ctx.resume().catch(() => {});
       if (ctx.state !== 'running') {
-        setError('Sound is blocked by the browser. Click anywhere on the page, then press “Hear this”.');
+        setError('Sound is blocked by the browser. Click anywhere on the page, then press play.');
         setSpeakingId(null);
         return;
       }
       const c = new AbortController();
       ctrl.current = c;
-      const parts = splitForSpeech(text, language);
-      // Synthesise every part at once; play them strictly in order.
-      const buffers = parts.map((part) =>
-        api.speak(part, language, c.signal, voice).then(({ audioBase64 }) => ctx.decodeAudioData(base64ToBuffer(audioBase64))),
-      );
-      buffers.forEach((b) => b.catch(() => {}));
       try {
-        let at = 0;
-        let last: AudioBufferSourceNode | null = null;
-        for (const pending of buffers) {
-          const buffer = await pending;
-          if (run.current !== mine) return;
-          const src = ctx.createBufferSource();
-          src.buffer = buffer;
-          src.connect(analyser.current!);
-          at = Math.max(at, ctx.currentTime + 0.03);
-          src.start(at);
-          at += buffer.duration;
-          sources.current.push(src);
-          last = src;
-        }
-        // Resolves when the last part ends, or when stop() aborts this run.
-        if (last) {
-          const end = last;
-          await new Promise<void>((done) => {
-            end.onended = () => done();
-            c.signal.addEventListener('abort', () => done(), { once: true });
-          });
-        }
-        if (run.current !== mine) return;
-        sources.current = [];
-        setSpeakingId((current) => (current === id ? null : current));
+        if (canStream()) await playStream(text, voice, c, mine);
+        else await playClips(ctx, text, voice, c, mine);
       } catch (e) {
-        if (run.current !== mine) return;
-        if (!isAbort(e)) setError(`Couldn't play the reply aloud: ${(e as Error).message}`);
-        sources.current = [];
-        setSpeakingId((current) => (current === id ? null : current));
+        if (run.current === mine && !isAbort(e)) setError(`Couldn't play the reply aloud: ${(e as Error).message}`);
       }
+      if (run.current !== mine) return;
+      sources.current = [];
+      playing.current = false;
+      setSpeakingId((current) => (current === id ? null : current));
     },
-    [context, language, stop],
+    [context, playClips, playStream, stop],
   );
 
   return { speakingId, speak, stop, unlock, getLevel, error };
