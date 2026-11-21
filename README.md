@@ -69,7 +69,7 @@ People facing a conversation they keep replaying in their head: setting a bounda
 
 ## Research it builds on
 
-We read these sources directly. Fuller notes, including what each source does **not** support, are in [`EVIDENCE.md`](EVIDENCE.md).
+We read these sources directly.
 
 1. **Inna Lin, Ashish Sharma, Christopher Rytting, Adam Miner, Jina Suh, Tim Althoff.** *IMBUE: Improving Interpersonal Effectiveness through Simulation and Just-in-time Feedback with Human-Language Model Interaction.* Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL 2024, Volume 1: Long Papers), pp. 810–840. [aclanthology.org/2024.acl-long.47](https://aclanthology.org/2024.acl-long.47/) · DOI [10.18653/v1/2024.acl-long.47](https://doi.org/10.18653/v1/2024.acl-long.47)
    - **What it found:** in a randomized study (n = 86), LLM-simulated practice improved self-efficacy and reduced negative emotion. Adding just-in-time feedback improved skill mastery by 17%, and only skill mastery transferred to a new, harder situation.
@@ -107,7 +107,7 @@ npm run dev                   # http://localhost:5173 (one process: API + Vite)
 ```
 
 ```bash
-npm test                      # 44 tests (vitest); Sarvam is stubbed, so no key is needed
+npm test                      # 46 tests (vitest); Sarvam is stubbed, so no key is needed
 npm run typecheck
 npm run build && npm start    # production: serves dist/ with a strict CSP on 0.0.0.0:$PORT
 ```
@@ -136,7 +136,7 @@ src/core/        pure TypeScript, no React: the session model most tests cover
   cue.ts         flags promises the user never wrote; cue-card text
 src/shared/      zod request/response schemas, language list, example situations
 src/client/      React UI: setup form, chat, voice mode, drills, compare, cue card
-server/          Express API, Sarvam adapter (chat + speech), request idempotency
+server/          Express API, Sarvam adapter (chat + speech), per-process idempotency cache
 api/             Vercel entry point (the same Express app as a serverless function)
 tests/           vitest
 ```
@@ -148,7 +148,7 @@ tests/           vitest
 - **Drills** (`/api/drill`) turn one of the user's replies into exactly three answers: one that keeps the point (adding no new promises), one that concedes, one that's vague, each with a one-line reason. Anything that isn't one of each kind, or contains template placeholders, is rejected and retried. *Try it from here* starts a new attempt at that moment with the strong reply as an editable draft.
 - **Suggestions are drafts.** Card, coach, drill and cue-card suggestions only fill editable drafts. Nothing is approved until the user presses a button.
 - **Untrusted text stays data.** Everything the user writes is sent to the model inside `<data>` tags, with an instruction to treat it as data, never as instructions. Requests and model output are validated with zod, everything renders as plain React text, and model output is never executed.
-- **Requests can't double-fire or land in the wrong place.** Each submit has a unique request ID, guarded in the reducer, by an in-flight ref, and by a server-side idempotency cache. Late, cancelled or stale responses land under their original parent or are dropped, and a failed request leaves the draft in the composer.
+- **Requests can't double-fire or land in the wrong place.** Each submit has a unique request ID, guarded in the browser by the reducer and an in-flight ref. On a single Node server (`npm start`) an in-memory idempotency cache also runs a repeated request ID only once; on Vercel each function instance has its own cache, so the browser guards are what count. Late, cancelled or stale responses land under their original parent or are dropped, and a failed request leaves the draft in the composer.
 - **Model output is checked, not trusted.** The server retries empty cards, malformed JSON, placeholder text and garbled quotes. If a quote's ending is garbled, the longest matching run of its opening words (at least 4) is shown, so a quote is always real text from the message.
 - **Voice mode** is a hands-free loop: listen → transcribe → reply → speak → listen. The microphone closes after about 1.2 s of silence, on a tap, or at 25 s, and a clip with less than 0.4 s of detected speech is never uploaded, so room noise can't become an invented reply.
 - **Spoken replies** are streamed: the server proxies Sarvam's streaming text-to-speech (MP3) and the browser plays it through a MediaSource as bytes arrive. Browsers without MP3 MediaSource fall back to whole clips, with the first sentence played while the rest is synthesised. All audio runs through one Web Audio context that also drives the orb.

@@ -15,7 +15,11 @@ import {
 import type { Providers } from './config.js';
 import { ProviderError } from './providers/types.js';
 
-/** Remembers in-flight/recent results per requestId so a duplicate submit runs the provider once. */
+/**
+ * Remembers in-flight/recent results per requestId so a duplicate submit runs the provider once.
+ * In-memory and per process: it holds for `npm start`, but serverless instances (Vercel) don't share
+ * it, so the browser-side guards (reducer + in-flight ref) are the primary protection.
+ */
 class Idempotency {
   private map = new Map<string, { kind: string; at: number; result: Promise<unknown> }>();
   run<T>(kind: string, requestId: string, fn: () => Promise<T>): Promise<T> | 'conflict' {

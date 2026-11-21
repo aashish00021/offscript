@@ -1,6 +1,6 @@
 # Manual comparison protocol
 
-Goal: check hypothesis H1 in `EVIDENCE.md` against a fair baseline. The baseline is the **same model** in an ordinary chat with a strong prompt, not a straw man. This is a small, informal usability comparison, not a study of effectiveness or clinical outcomes.
+Goal: check whether keeping your own approved card in view, with alternative attempts side by side, makes it easier to recover your point than a well-prompted general chatbot, against a fair baseline. The baseline is the **same model** in an ordinary chat with a strong prompt, not a straw man. This is a small, informal usability comparison, not a study of effectiveness or clinical outcomes.
 
 ## Conditions
 

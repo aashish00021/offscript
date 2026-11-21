@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findQuote, verifyCoachFinding } from '../src/core/coach';
-import { findInsertedCommitments } from '../src/core/cue';
+import { findInsertedCommitments, findNewWords } from '../src/core/cue';
 import { buildActorRequest } from '../src/core/requests';
 import { initialSession, reducer } from '../src/core/session';
 import { activeIntention, activePath, childrenOf } from '../src/core/tree';
@@ -223,6 +223,20 @@ describe('cue card', () => {
     const cue = { mainPoint: "I'm not available this weekend.", opening: "I promise I'll finish Friday.", fallback: '' };
     expect(findInsertedCommitments(cue, ["I'm not available this weekend."])).toEqual(['promise', "I'll"]);
     expect(findInsertedCommitments(cue, ["I promise I'll finish Friday."])).toEqual([]);
+  });
+});
+
+describe('cue card in other languages', () => {
+  const sources = ['मुझे इस वीकेंड काम नहीं करना। मैं गुरुवार देर तक रुक सकता हूँ।'];
+  it('flags words the user never wrote, such as an added promise or deadline', () => {
+    const cue = { mainPoint: 'मैं इस वीकेंड काम नहीं करूँगा।', opening: '', fallback: 'मैं वादा करता हूँ कि सोमवार 9 बजे तक काम पूरा करूँगा।' };
+    const fresh = findNewWords(cue, sources, 'hi-IN');
+    expect(fresh).toEqual(expect.arrayContaining(['वादा', 'सोमवार', '9']));
+    expect(fresh).not.toContain('वीकेंड');
+  });
+  it('stays quiet when the cue only uses the user\'s own words', () => {
+    const cue = { mainPoint: 'मुझे इस वीकेंड काम नहीं करना।', opening: 'मैं गुरुवार देर तक रुक सकता हूँ।', fallback: '' };
+    expect(findNewWords(cue, sources, 'hi-IN')).toEqual([]);
   });
 });
 

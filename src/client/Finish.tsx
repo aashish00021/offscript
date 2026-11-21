@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { cueCardText, findInsertedCommitments } from '../core/cue';
+import { cueCardText, findInsertedCommitments, findNewWords } from '../core/cue';
 import { buildCueRequest } from '../core/requests';
 import type { Action } from '../core/session';
 import { activeIntention, activePath } from '../core/tree';
@@ -22,7 +22,9 @@ export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => v
     ...s.intentions.flatMap((v) => [v.needToSay, v.preferNotToAgree, v.couldOffer]),
     ...activePath(s).filter((m) => m.speaker === 'user').map((m) => m.text),
   ];
-  const warnings = draft ? findInsertedCommitments(draft, userSources) : [];
+  // English has a precise list of promise words; other languages get the language-neutral check.
+  const english = s.language === 'en-IN';
+  const warnings = !draft ? [] : english ? findInsertedCommitments(draft, userSources) : findNewWords(draft, userSources, s.language);
 
   async function suggest() {
     setBusy(true);
@@ -67,7 +69,7 @@ export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => v
           )}
           {warnings.length > 0 && (
             <p className="quiet-note" role="status">
-              {warnings.map((w) => `“${w}”`).join(', ')} isn't in anything you wrote. Keep it only if you mean it.
+              Not in anything you wrote: {warnings.map((w) => `“${w}”`).join(', ')}. Keep {warnings.length > 1 ? 'these' : 'it'} only if you mean it.
             </p>
           )}
           <div className="row">
