@@ -14,6 +14,7 @@
     "express": "^4.22.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tsx": "^4.23.15",
     "zod": "^3.25.76"
   },
   "description": "Rehearse a difficult conversation with an AI counterpart, by text or voice, in English and Indian languages",
@@ -23,7 +24,6 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
-    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^5.4.21",
     "vitest": "^2.1.9"

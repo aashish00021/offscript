@@ -67,12 +67,21 @@ npm run dev                   # http://localhost:5173 (one process: API + Vite)
 ```bash
 npm test                      # 34 unit and server tests (vitest); Sarvam is stubbed, no key needed
 npm run typecheck
-npm run build && npm start    # production-style: serves dist/ with a strict CSP, binds to 127.0.0.1
+npm run build && npm start    # production: serves dist/ with a strict CSP on 0.0.0.0:$PORT
 ```
 
 - The key is read only by the server. It is never sent to the browser, logged, or included in responses. `/api/status` reports only the mode and model IDs.
 - Without a key the app still starts, but a red banner says the AI is unavailable, and every AI request returns a clear error. Nothing is faked.
 - Voice (Talk and spoken replies) is on whenever the key is set. Set `SPEECH_ENABLED=false` to turn it off. Model IDs can be overridden in `.env` (see `.env.example`).
+
+### Deploy
+
+Any Node host that runs a long-lived server works (Render, Railway, Fly.io, a VM). Static hosts such as Vercel or Netlify static sites don't, because the API is an Express server.
+
+- **Build command:** `npm install && npm run build` (the build needs dev dependencies).
+- **Start command:** `npm start`. It listens on `0.0.0.0:$PORT`; set `HOST` to override.
+- **Environment:** `SARVAM_API_KEY` (required). Optionally `NODE_VERSION=20` or later.
+- **HTTPS is required for the microphone.** Browsers only allow voice input on `https://` or `localhost`; hosted platforms provide HTTPS by default.
 
 ---
 

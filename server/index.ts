@@ -31,9 +31,12 @@ if (prod) {
   app.use(vite.middlewares);
 }
 
-app.listen(port, '127.0.0.1', () => {
+// Local dev stays on loopback; a production deploy must accept outside connections. HOST overrides both.
+const host = process.env.HOST ?? (prod ? '0.0.0.0' : '127.0.0.1');
+
+app.listen(port, host, () => {
   const s = providers.status;
-  console.log(`Offscript → http://localhost:${port}`);
+  console.log(`Offscript → http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
   console.log(
     `  chat: ${s.mode === 'live' ? `live via ${s.chat.provider}` : `UNAVAILABLE (${s.chat.reason})`}`,
   );
