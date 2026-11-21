@@ -25,7 +25,7 @@ const PATHS = {
   target: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 11.5v1" />,
 } as const;
 
-export type IconName = keyof typeof PATHS;
+type IconName = keyof typeof PATHS;
 
 export function Icon({ name }: { name: IconName }) {
   return (

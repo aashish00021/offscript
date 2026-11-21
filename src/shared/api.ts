@@ -101,8 +101,8 @@ export const drillRequest = z.object({
 });
 export type DrillRequest = z.infer<typeof drillRequest>;
 
-export const drillKinds = ['holds', 'concedes', 'vague'] as const;
-export const drillOption = z.object({
+const drillKinds = ['holds', 'concedes', 'vague'] as const;
+const drillOption = z.object({
   kind: z.enum(drillKinds),
   text: z.string().trim().min(1).max(300),
   why: z.string().trim().min(1).max(300),
@@ -122,7 +122,7 @@ export const coachRequest = z.object({
 });
 export type CoachRequest = z.infer<typeof coachRequest>;
 
-export const coachFinding = z.object({
+const coachFinding = z.object({
   kind: z.enum(['observation', 'possible_change']),
   messageId: id,
   quote: z.string().min(1).max(400),

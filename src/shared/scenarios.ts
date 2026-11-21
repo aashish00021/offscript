@@ -4,7 +4,7 @@ import type { Scenario } from '../core/types.js';
  * Example situations. They only prefill the setup form; the user can edit every
  * field, and every reply in practice is generated live from what is in the form.
  */
-export interface Example {
+interface Example {
   label: string;
   scenario: Scenario;
   /** Sample "what's on your mind" notes for the card step. */

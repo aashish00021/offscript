@@ -49,7 +49,7 @@ function extractJson(text: string): unknown {
 }
 
 /** False for empty strings, punctuation-only filler ("...") and copied template slots ("<reply>"). */
-export const isRealText = (v: string) => /\p{L}/u.test(v) && !/^\s*<[^<>]*>\s*$/.test(v);
+const isRealText = (v: string) => /\p{L}/u.test(v) && !/^\s*<[^<>]*>\s*$/.test(v);
 
 /**
  * Model JSON → the given string fields. Missing or null fields, and placeholders with no

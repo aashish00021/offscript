@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, isAbort } from './api';
 
-export type RecorderState =
+type RecorderState =
   | { kind: 'idle' }
   | { kind: 'requesting' }
-  | { kind: 'recording'; seconds: number; level: number }
+  | { kind: 'recording' }
   | { kind: 'transcribing' }
   | { kind: 'error'; message: string };
 
@@ -105,7 +105,7 @@ export function useRecorder(language: string, onTranscript: (text: string) => vo
     const samples = new Uint8Array(analyser.fftSize);
     let heardSpeech = false;
     let silentSince: number | null = null;
-    setState({ kind: 'recording', seconds: 0, level: 0 });
+    setState({ kind: 'recording' });
     timer.current = window.setInterval(() => {
       const seconds = Math.floor((Date.now() - began) / 1000);
       analyser.getByteTimeDomainData(samples);
@@ -124,15 +124,12 @@ export function useRecorder(language: string, onTranscript: (text: string) => vo
       }
       const paused = silentSince !== null && Date.now() - silentSince >= SILENCE_MS;
       if (seconds >= MAX_SECONDS || paused) stop();
-      // level: 0..1 for the on-screen meter; quiet speech sits around 0.05–0.1 RMS.
-      else {
-        level.current = Math.min(1, rms * 8);
-        setState({ kind: 'recording', seconds, level: level.current });
-      }
+      // 0..1 for the orb, read outside React renders; quiet speech sits around 0.05–0.1 RMS.
+      else level.current = Math.min(1, rms * 8);
     }, 100);
   }, [language, releaseMic, stop]);
 
-  return { state, start, stop, cancel, getLevel, maxSeconds: MAX_SECONDS };
+  return { state, start, stop, cancel, getLevel };
 }
 
 /**

@@ -58,6 +58,6 @@ We copied no branding, text, assets or interface from these products.
 
 - H1: Having your *own approved* intention cue in view, plus keeping your alternative attempts side by side, makes it easier to recover your point than managing a well-prompted general chatbot. **Not tested.** See `docs/COMPARISON.md` for how to test it.
 - H2: Asking whether an apparent concession is *intentional*, instead of flagging it as a failure, keeps the user in charge of their goals. Not tested.
-- H3: Indian-language rehearsal by voice is usable for this moment. **Not tested with users.** On 2026-11-22 the Sarvam chat, speech-to-text and text-to-speech calls were exercised live in English and Hindi (see the README's Testing section), which shows the pipeline works, not that it helps.
+- H3: Indian-language rehearsal by voice is usable for this moment. **Not tested with users.** On 2026-11-22 the pipeline was exercised live: chat replies came back in the right script in all 23 languages, and speech-to-text → text-to-speech round trips succeeded in all 11 spoken languages. That shows the pipeline works, not that it helps anyone.
 
 No user results exist. Nothing here is a clinical claim.
