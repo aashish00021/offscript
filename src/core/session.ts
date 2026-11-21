@@ -8,8 +8,8 @@ import {
   type Phase,
   type Scenario,
   type Session,
-} from './types';
-import { childrenOf, descendToLeaf, intentionForNode, latestIntention, pathTo, userTurnCount } from './tree';
+} from './types.js';
+import { childrenOf, descendToLeaf, intentionForNode, latestIntention, pathTo, userTurnCount } from './tree.js';
 
 export function initialSession(epoch = 0, language = 'en-IN'): Session {
   return {

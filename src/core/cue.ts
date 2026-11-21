@@ -1,4 +1,4 @@
-import type { CueFields } from './types';
+import type { CueFields } from './types.js';
 
 const COMMITMENT_PATTERNS: Array<[string, RegExp]> = [
   ['promise', /\bpromis(e|es|ed|ing)\b/i],

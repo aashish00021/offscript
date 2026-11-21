@@ -1,6 +1,6 @@
-import type { CoachFindingRaw } from '../shared/api';
-import { activeIntention, activePath, getIntention } from './tree';
-import type { IntentionFields, Message, Session } from './types';
+import type { CoachFindingRaw } from '../shared/api.js';
+import { activeIntention, activePath, getIntention } from './tree.js';
+import type { IntentionFields, Message, Session } from './types.js';
 
 export const FIELD_LABELS: Record<keyof IntentionFields, string> = {
   needToSay: 'What I need to say',

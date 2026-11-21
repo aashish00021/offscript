@@ -1,4 +1,4 @@
-import type { CueFields, IntentionFields } from '../../src/core/types';
+import type { CueFields, IntentionFields } from '../../src/core/types.js';
 import type {
   ActorRequest,
   CoachFindingRaw,
@@ -9,7 +9,7 @@ import type {
   IntentionSuggestRequest,
   OpeningRequest,
   ProviderName,
-} from '../../src/shared/api';
+} from '../../src/shared/api.js';
 
 export interface ChatProvider {
   name: ProviderName;

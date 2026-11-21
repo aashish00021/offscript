@@ -1,6 +1,6 @@
-import type { ActorRequest, CoachRequest, CueSuggestRequest, DrillRequest, OpeningRequest, ScenarioPayload } from '../shared/api';
-import { activeIntention, activePath, getIntention, intentionForNode, latestIntention, pathTo } from './tree';
-import { scenarioIsReady, type IntentionVersion, type Message, type Scenario, type Session } from './types';
+import type { ActorRequest, CoachRequest, CueSuggestRequest, DrillRequest, OpeningRequest, ScenarioPayload } from '../shared/api.js';
+import { activeIntention, activePath, getIntention, intentionForNode, latestIntention, pathTo } from './tree.js';
+import { scenarioIsReady, type IntentionVersion, type Message, type Scenario, type Session } from './types.js';
 
 /** What the server needs to know about the situation. Opening line and voice stay client-side. */
 export const scenarioPayload = (sc: Scenario): ScenarioPayload => ({

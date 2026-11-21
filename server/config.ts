@@ -1,6 +1,6 @@
-import type { StatusResponse } from '../src/shared/api';
-import { createSarvamChat, createSarvamSpeech } from './providers/sarvam';
-import { ProviderError, type ChatProvider, type SpeechProvider } from './providers/types';
+import type { StatusResponse } from '../src/shared/api.js';
+import { createSarvamChat, createSarvamSpeech } from './providers/sarvam.js';
+import { ProviderError, type ChatProvider, type SpeechProvider } from './providers/types.js';
 
 export interface Providers {
   chat: ChatProvider;

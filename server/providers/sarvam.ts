@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { LANGUAGES, coachOutput, cueFields, drillOutput, intentionFields, type OpeningRequest } from '../../src/shared/api';
-import { findQuote } from '../../src/core/coach';
-import { ProviderError, type ChatProvider, type SpeechProvider } from './types';
+import { LANGUAGES, coachOutput, cueFields, drillOutput, intentionFields, type OpeningRequest } from '../../src/shared/api.js';
+import { findQuote } from '../../src/core/coach.js';
+import { ProviderError, type ChatProvider, type SpeechProvider } from './types.js';
 
 /**
  * Sarvam adapter. Chat contract re-checked against docs.sarvam.ai on 2026-11-21:

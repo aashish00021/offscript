@@ -11,9 +11,9 @@ import {
   languageCode,
   openingRequest,
   voiceLanguageCode,
-} from '../src/shared/api';
-import type { Providers } from './config';
-import { ProviderError } from './providers/types';
+} from '../src/shared/api.js';
+import type { Providers } from './config.js';
+import { ProviderError } from './providers/types.js';
 
 /** Remembers in-flight/recent results per requestId so a duplicate submit runs the provider once. */
 class Idempotency {

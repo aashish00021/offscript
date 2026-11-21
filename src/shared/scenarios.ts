@@ -1,4 +1,4 @@
-import type { Scenario } from '../core/types';
+import type { Scenario } from '../core/types.js';
 
 /**
  * Example situations. They only prefill the setup form; the user can edit every

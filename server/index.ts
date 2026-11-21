@@ -1,7 +1,7 @@
 import path from 'node:path';
 import express from 'express';
-import { createApp } from './app';
-import { providersFromEnv } from './config';
+import { createApp } from './app.js';
+import { providersFromEnv } from './config.js';
 
 try {
   process.loadEnvFile('.env');

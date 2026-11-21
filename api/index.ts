@@ -1,5 +1,5 @@
-import { createApp } from '../server/app';
-import { providersFromEnv } from '../server/config';
+import { createApp } from '../server/app.js';
+import { providersFromEnv } from '../server/config.js';
 
 /**
  * Vercel entry point: the same Express API as `npm start`, run as one serverless

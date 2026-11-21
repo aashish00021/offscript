@@ -1,4 +1,4 @@
-import type { IntentionVersion, Message, Session } from './types';
+import type { IntentionVersion, Message, Session } from './types.js';
 
 /** Root-to-node path. Siblings and descendants are never included. */
 export function pathTo(s: Session, nodeId: string | null): Message[] {
