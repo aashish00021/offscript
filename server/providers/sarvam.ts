@@ -48,10 +48,15 @@ function extractJson(text: string): unknown {
   }
 }
 
-/** Model JSON → the given string fields. Missing or null fields become "" instead of failing. */
-function stringFields<K extends string>(text: string, keys: readonly K[]): Record<K, string> {
+/**
+ * Model JSON → the given string fields. Missing or null fields, and placeholders with no
+ * letters at all (e.g. "...", "…", "<>"), become "" so the caller can retry instead of
+ * showing them to the user.
+ */
+export function stringFields<K extends string>(text: string, keys: readonly K[]): Record<K, string> {
   const raw = extractJson(text) as Record<string, unknown>;
-  return Object.fromEntries(keys.map((k) => [k, typeof raw?.[k] === 'string' ? (raw[k] as string).trim() : ''])) as Record<K, string>;
+  const clean = (v: unknown) => (typeof v === 'string' && /\p{L}/u.test(v) ? v.trim() : '');
+  return Object.fromEntries(keys.map((k) => [k, clean(raw?.[k])])) as Record<K, string>;
 }
 
 const cleanLine = (text: string) => text.replace(/^["“]|["”]$/g, '').slice(0, 600);
@@ -190,7 +195,7 @@ export function createSarvamChat(key: string, actorModel: string, coachModel: st
       const system = [
         'Turn the user\'s messy notes into a draft card. Reply with JSON: {"needToSay": "<the main thing they need to say, as one sentence they would say>", "preferNotToAgree": "<what they would rather not agree to>", "couldOffer": "<what they could offer instead>"}.',
         'Reuse their own words wherever possible. needToSay is the main thing they want to say: fill it whenever the notes contain any request, limit or point. Leave a field as an empty string only if the notes say nothing about it.',
-        'Never add goals, values, promises or offers they did not express. Keep each field under 200 characters, in the language they wrote in.',
+        'Never add goals, values, promises or offers they did not express. Keep each field under 200 characters, in the language they wrote in. Write real sentences from their notes; never output placeholders such as "..." or the descriptions above.',
         DATA_RULE,
       ].join('\n');
       const messages = [

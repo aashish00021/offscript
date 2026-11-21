@@ -3,7 +3,7 @@ import { verifyCoachFinding } from '../src/core/coach';
 import { buildActorRequest, buildCoachRequest } from '../src/core/requests';
 import { reducer } from '../src/core/session';
 import { activePath } from '../src/core/tree';
-import { createSarvamChat } from '../server/providers/sarvam';
+import { createSarvamChat, stringFields } from '../server/providers/sarvam';
 import { ProviderError } from '../server/providers/types';
 import { started, turn } from './helpers';
 
@@ -122,5 +122,29 @@ describe('live English text loop, without calling Sarvam', () => {
       expect(e).toBeInstanceOf(ProviderError);
       expect((e as Error).message).not.toContain(KEY);
     }
+  });
+});
+
+describe('model output cleanup', () => {
+  it('treats placeholder-only fields as empty so the server retries', () => {
+    const f = stringFields('{"needToSay": "...", "preferNotToAgree": "…", "couldOffer": " I can help find a cab. "}', [
+      'needToSay',
+      'preferNotToAgree',
+      'couldOffer',
+    ]);
+    expect(f).toEqual({ needToSay: '', preferNotToAgree: '', couldOffer: 'I can help find a cab.' });
+    expect(stringFields('{"needToSay": "मुझे रविवार चाहिए"}', ['needToSay']).needToSay).toBe('मुझे रविवार चाहिए');
+  });
+
+  it('retries a placeholder card and returns the real one', async () => {
+    const replies = [
+      '{"needToSay": "...", "preferNotToAgree": "...", "couldOffer": "..."}',
+      '{"needToSay": "I need Sunday to myself.", "preferNotToAgree": "", "couldOffer": ""}',
+    ];
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ choices: [{ message: { content: replies.shift() } }] })));
+    const chat = createSarvamChat(KEY, 'sarvam-105b-conversations', 'sarvam-105b');
+    const f = await chat.suggestIntention({ requestId: 'i1', language: 'en-IN', thoughts: 'I need Sunday to myself.' }, signal);
+    expect(f.needToSay).toBe('I need Sunday to myself.');
+    expect(replies).toHaveLength(0);
   });
 });
