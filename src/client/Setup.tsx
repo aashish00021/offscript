@@ -3,7 +3,7 @@ import { buildOpeningRequest } from '../core/requests';
 import type { Action } from '../core/session';
 import { latestIntention } from '../core/tree';
 import { LIMITS, scenarioIsReady, type Scenario, type Session } from '../core/types';
-import { LANGUAGES, type StatusResponse } from '../shared/api';
+import { LANGUAGES, speaksLanguage, type StatusResponse } from '../shared/api';
 import { EXAMPLES, exampleScenario } from '../shared/scenarios';
 import { api, isAbort, newId } from './api';
 import { IntentionEditor } from './IntentionCard';
@@ -89,12 +89,24 @@ export function Setup({
       <div className="field lang">
         <label htmlFor="lang">Language</label>
         <select id="lang" value={s.language} onChange={(e) => dispatch({ type: 'SET_LANGUAGE', language: e.target.value })}>
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
+          <optgroup label="Spoken replies">
+            {LANGUAGES.filter((l) => l.voice).map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Text replies (you can still speak)">
+            {LANGUAGES.filter((l) => !l.voice).map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </optgroup>
         </select>
+        {!speaksLanguage(s.language) && (
+          <p className="hint">Replies in this language appear as text. You can still talk; your speech is transcribed.</p>
+        )}
       </div>
 
       <fieldset className="situation">
@@ -130,7 +142,7 @@ export function Setup({
           onChange={(v) => set({ openingLine: v })}
           rows={2}
         />
-        {status?.speech.available && (
+        {status?.speech.available && speaksLanguage(s.language) && (
           <div className="field">
             <label htmlFor="sc-voice">{sc.counterpartName.trim() ? `${sc.counterpartName.trim()}'s voice` : 'Their voice'}</label>
             <select id="sc-voice" value={sc.voice} onChange={(e) => set({ voice: e.target.value === 'shubh' ? 'shubh' : 'priya' })}>

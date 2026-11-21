@@ -22,6 +22,7 @@ const PATHS = {
   chevron: <path d="M6 9l6 6 6-6" />,
   check: <path d="M5 12l5 5 9-10" />,
   wave: <path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />,
+  target: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 11.5v1" />,
 } as const;
 
 export type IconName = keyof typeof PATHS;

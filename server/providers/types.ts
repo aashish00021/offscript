@@ -4,6 +4,8 @@ import type {
   CoachFindingRaw,
   CoachRequest,
   CueSuggestRequest,
+  DrillOption,
+  DrillRequest,
   IntentionSuggestRequest,
   OpeningRequest,
   ProviderName,
@@ -19,6 +21,8 @@ export interface ChatProvider {
   coach(req: CoachRequest, signal: AbortSignal): Promise<CoachFindingRaw | null>;
   suggestIntention(req: IntentionSuggestRequest, signal: AbortSignal): Promise<IntentionFields>;
   suggestCue(req: CueSuggestRequest, signal: AbortSignal): Promise<CueFields>;
+  /** Three replies for one moment: one keeps the point, one concedes, one is vague. */
+  drill(req: DrillRequest, signal: AbortSignal): Promise<DrillOption[]>;
 }
 
 export interface SpeechProvider {

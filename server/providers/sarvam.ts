@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LANGUAGES, coachOutput, cueFields, intentionFields, type OpeningRequest } from '../../src/shared/api';
+import { LANGUAGES, coachOutput, cueFields, drillOutput, intentionFields, type OpeningRequest } from '../../src/shared/api';
 import { findQuote } from '../../src/core/coach';
 import { ProviderError, type ChatProvider, type SpeechProvider } from './types';
 
@@ -48,6 +48,9 @@ function extractJson(text: string): unknown {
   }
 }
 
+/** False for empty strings, punctuation-only filler ("...") and copied template slots ("<reply>"). */
+export const isRealText = (v: string) => /\p{L}/u.test(v) && !/^\s*<[^<>]*>\s*$/.test(v);
+
 /**
  * Model JSON → the given string fields. Missing or null fields, and placeholders with no
  * letters at all (e.g. "...", "…", "<>"), become "" so the caller can retry instead of
@@ -55,7 +58,7 @@ function extractJson(text: string): unknown {
  */
 export function stringFields<K extends string>(text: string, keys: readonly K[]): Record<K, string> {
   const raw = extractJson(text) as Record<string, unknown>;
-  const clean = (v: unknown) => (typeof v === 'string' && /\p{L}/u.test(v) ? v.trim() : '');
+  const clean = (v: unknown) => (typeof v === 'string' && isRealText(v) ? v.trim() : '');
   return Object.fromEntries(keys.map((k) => [k, clean(raw?.[k])])) as Record<K, string>;
 }
 
@@ -209,6 +212,38 @@ export function createSarvamChat(key: string, actorModel: string, coachModel: st
         if (parsed.success && parsed.data.needToSay) return parsed.data;
       }
       throw new ProviderError('provider_bad_output', "Couldn't find your main point in those notes. Try “Write it myself”.");
+    },
+
+    async drill(req, signal) {
+      const system = [
+        'You write a short practice drill for one moment in a conversation the user is rehearsing.',
+        'Reply with JSON only: an object with key "options", an array of exactly three objects. Each object has "kind" (one of "holds", "concedes", "vague", each used once), "text" (the reply) and "why" (one short sentence). Write real content, never placeholders.',
+        'Each "text" is something the USER could say right after the other person\'s line, in first person, one or two short sentences, in the user\'s own voice.',
+        '"holds": keeps their point (card needToSay) clearly and calmly; it may include their offer (couldOffer); it adds no new promises, apologies or concessions.',
+        '"concedes": sounds reasonable but gives in on something in preferNotToAgree, or drops their point.',
+        '"vague": hedges or talks around it, so the other person can easily push past it.',
+        '"why" explains in one neutral sentence, addressed to the user as "you", what that reply does. No scores, no judgments of confidence or emotion.',
+        `Write "text" and "why" in ${languageName(req.language)}. Never output placeholders.`,
+        DATA_RULE,
+      ].join('\n');
+      const data = JSON.stringify({
+        situation: req.scenario.situation,
+        other_person: `${req.scenario.counterpartName}, ${req.scenario.counterpartRole}`,
+        card: { needToSay: req.card.needToSay, preferNotToAgree: req.card.preferNotToAgree, couldOffer: req.card.couldOffer },
+        their_line: req.theirLine,
+        what_the_user_actually_said: req.yourReply,
+      });
+      const messages = [
+        { role: 'system' as const, content: system },
+        { role: 'user' as const, content: `<data>${data}</data>` },
+      ];
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const text = await chat(coachModel, messages, signal, { json: true, maxTokens: 1500 });
+        const raw = extractJson(text) as { options?: unknown };
+        const parsed = drillOutput.safeParse(raw?.options);
+        if (parsed.success && parsed.data.every((o) => isRealText(o.text) && isRealText(o.why))) return parsed.data;
+      }
+      throw new ProviderError('provider_bad_output', 'Could not build a drill for that moment. Try again.');
     },
 
     async suggestCue(req, signal) {

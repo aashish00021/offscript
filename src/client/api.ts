@@ -3,6 +3,8 @@ import type {
   CoachFindingRaw,
   CoachRequest,
   CueSuggestRequest,
+  DrillOption,
+  DrillRequest,
   IntentionSuggestRequest,
   OpeningRequest,
   StatusResponse,
@@ -47,6 +49,7 @@ export const api = {
   suggestIntention: (b: IntentionSuggestRequest, signal: AbortSignal) =>
     postJson<{ fields: IntentionFields }>('/api/intention/suggest', b, signal),
   suggestCue: (b: CueSuggestRequest, signal: AbortSignal) => postJson<{ fields: CueFields }>('/api/cue/suggest', b, signal),
+  drill: (b: DrillRequest, signal: AbortSignal) => postJson<{ options: DrillOption[] }>('/api/drill', b, signal),
   transcribe: (audio: Blob, language: string, signal: AbortSignal) =>
     request<{ transcript: string }>(`/api/speech/transcribe?language=${encodeURIComponent(language)}`, {
       method: 'POST',

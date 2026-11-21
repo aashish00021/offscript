@@ -5,9 +5,11 @@ import {
   actorRequest,
   coachRequest,
   cueSuggestRequest,
+  drillRequest,
   intentionSuggestRequest,
   languageCode,
   openingRequest,
+  voiceLanguageCode,
 } from '../src/shared/api';
 import type { Providers } from './config';
 import { ProviderError } from './providers/types';
@@ -109,6 +111,9 @@ export function createApp(providers: Providers, opts: { log?: (line: string) => 
   jsonRoute('/api/cue/suggest', cueSuggestRequest, async (body, signal) => ({
     fields: await providers.chat.suggestCue(body, signal),
   }));
+  jsonRoute('/api/drill', drillRequest, async (body, signal) => ({
+    options: await providers.chat.drill(body, signal),
+  }));
 
   const speechOff = (res: Response) =>
     sendError(res, 503, 'speech_unavailable', providers.status.speech.reason ?? 'Speech is unavailable.');
@@ -140,9 +145,13 @@ export function createApp(providers: Providers, opts: { log?: (line: string) => 
   app.post('/api/speech/speak', express.json({ limit: '8kb' }), async (req, res) => {
     if (!providers.speech) return speechOff(res);
     const parsed = z
-      .object({ text: z.string().trim().min(1).max(600), language: languageCode, voice: z.enum(['priya', 'shubh']).optional() })
+      .object({ text: z.string().trim().min(1).max(600), language: voiceLanguageCode, voice: z.enum(['priya', 'shubh']).optional() })
       .safeParse(req.body);
-    if (!parsed.success) return sendError(res, 400, 'invalid_request', 'Request did not match the expected shape.');
+    if (!parsed.success) {
+      const lang = languageCode.safeParse(req.body?.language);
+      if (lang.success) return sendError(res, 400, 'speech_unsupported', 'Spoken replies are not available in this language.');
+      return sendError(res, 400, 'invalid_request', 'Request did not match the expected shape.');
+    }
     try {
       res.json(
         await providers.speech.speak(parsed.data.text, parsed.data.language, abortOnClose(req, res), parsed.data.voice),

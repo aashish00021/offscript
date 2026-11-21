@@ -14,21 +14,22 @@ It is a practice tool, not therapy. It doesn't diagnose, and it doesn't score yo
 
 Most advice for hard conversations is about *what* to say. The failure people describe is different: they know what to say, but under pressure — a parent's guilt, a manager's urgency, a friend's awkward laugh — they lose the thread, soften the ask, or agree to something they had decided not to agree to.
 
-Offscript is built around four ideas:
+Offscript is built around five ideas:
 
 1. **Your point, written by you, approved by you.** Before you practise, your messy thoughts become a three-part card: *what I need to say*, *what I'd prefer not to agree to*, *what I could offer*. The AI can draft it, but nothing counts until you approve it. The card stays on screen while you practise.
 2. **Realistic pushback, not a pushover.** The other person is played by a model that stays in character, reacts to what you actually said (even if it was messy), partly agrees, asks questions or holds its ground, and softens only if you stay clear.
 3. **Rewind instead of restart.** Any reply can be retried from the same moment. Attempts are kept side by side, so you can compare "what I said" against "what I wish I'd said" and see how the other person responded to each.
 4. **Feedback that quotes you, and asks rather than judges.** On request, a separate coach gives one observation. It must quote your exact words, and the app checks that quote against the transcript before showing it. If you seem to have conceded something on your card, the app asks *"Is that an intentional change?"* instead of marking it as a mistake. Your goals are yours to change.
+5. **Drills on the moments you slipped.** Any of your replies can become a quick drill: three possible answers to the same line — one that keeps your point, one that gives in, one that's vague. Pick one, see why each works or doesn't, then rewind and try the strong one in the real conversation.
 
-**Voice and Indian languages.** Practise as a chat by typing, or open **voice mode** and talk face to face: an orb listens while you speak, sends when you pause, and moves with the other person's voice as they answer. Every line also appears in the chat. This uses [Sarvam AI](https://docs.sarvam.ai/) models for chat, speech-to-text and text-to-speech, across English and 10 Indian languages (Hindi is the one tested live).
+**Voice and Indian languages.** Practise as a chat by typing, or open **voice mode** and talk face to face: an orb listens while you speak, sends when you pause, and moves with the other person's voice as they answer. Every line also appears in the chat. This uses [Sarvam AI](https://docs.sarvam.ai/) models for chat, speech-to-text and text-to-speech, in all 23 languages Sarvam's speech-to-text supports: English and the 22 scheduled Indian languages. In the 11 that Sarvam can also speak (English, Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia) the other person answers out loud; in the other 12 (Assamese, Urdu, Nepali, Konkani, Kashmiri, Sindhi, Sanskrit, Santali, Manipuri, Bodo, Maithili, Dogri) you can still speak, and their replies appear as text.
 
 ### What a session looks like
 
 1. **Describe the conversation.** What it's about, who you're talking to, who they are to you, and what's going on. Optionally, write how they open, or leave it blank and the AI opens in character. Two examples can prefill the form.
 2. **Make your card.** Dump your thoughts; the AI drafts the card from your own words; you edit and approve it.
 3. **Rehearse.** The other person speaks first. Reply in the chat, or switch to voice mode and just talk. You get up to 6 replies per attempt and up to 3 attempts at any point.
-4. **Ask for one observation** whenever you want it, and **try another reply** from any earlier point. **Compare** attempts side by side.
+4. **Ask for one observation** whenever you want it, **drill** any of your replies, and **try another reply** from any earlier point. **Compare** attempts side by side.
 5. **Leave with a cue card.** The main point, a way to start, and a line to come back to, suggested from your words and approved by you. You can copy or download it.
 
 ---
@@ -86,7 +87,7 @@ src/core/        pure TypeScript, no React — what most tests cover
   coach.ts       verifies coach findings against the real transcript
   cue.ts         flags promises the user never wrote; cue-card text
 src/shared/      zod request/response schemas, language list, example situations
-src/client/      React UI (setup form, chat, voice mode with orb, compare, cue card)
+src/client/      React UI (setup form, chat, voice mode with orb, drills, compare, cue card)
 server/          Express API, Sarvam adapter (chat + speech), request idempotency
 tests/           vitest
 ```
@@ -95,6 +96,7 @@ tests/           vitest
 
 - **The other person** (`/api/actor`) is given only the user-written situation, the card that applies at that point, and the root-to-current path of the active attempt. Sibling attempts and later messages are never sent. If the user left the opening line blank, `/api/opening` writes it in character, without seeing the card, so the first line can't react to goals the user hasn't voiced yet.
 - **The coach** (`/api/coach`) is a separate, read-only call made only on request. It must return a message ID and an exact quote. The server re-checks the quote and retries once if needed. `verifyCoachFinding` in the browser checks again that the ID is a user message on the active path and that the quote really appears in it; if not, nothing is shown. The "Is that an intentional change?" question is assembled by code from the verified quote and the card version that message was sent under. The model can't word it.
+- **Drills** (`/api/drill`) take one of the user's replies and the line it answered, and return exactly three replies: one that keeps the point (and adds no new promises), one that concedes, one that's vague, each with a one-line reason. The server rejects anything that isn't one of each kind, or that contains template placeholders, and retries. "Try it from here" starts a new attempt at that moment with the strong reply as an editable draft.
 - **Suggestions are drafts.** Card, coach and cue-card suggestions only fill an editable draft. Nothing is approved until the user presses a button.
 - **Untrusted text stays data.** Everything the user writes (the situation, the card, the replies) is sent to the model inside `<data>` tags, with an instruction to treat it as data, never as instructions. Requests and model output are validated with zod. Everything renders as plain React text (no `dangerouslySetInnerHTML`). Model output is never executed, and URLs in it are never followed.
 - **Requests can't double-fire or land in the wrong place.** Each submit has a unique request ID, guarded in the reducer, by an in-flight ref, and by a server-side idempotency cache. Responses that arrive late, after a cancel, on another attempt or after a reset either land under their original parent or are dropped. A failed request commits nothing, and the draft stays in the composer.

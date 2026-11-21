@@ -4,6 +4,7 @@ import { buildActorRequest, buildCoachRequest } from '../src/core/requests';
 import { reducer } from '../src/core/session';
 import { activePath } from '../src/core/tree';
 import { createSarvamChat, stringFields } from '../server/providers/sarvam';
+import { drillOutput } from '../src/shared/api';
 import { ProviderError } from '../server/providers/types';
 import { started, turn } from './helpers';
 
@@ -145,6 +146,39 @@ describe('model output cleanup', () => {
     const chat = createSarvamChat(KEY, 'sarvam-105b-conversations', 'sarvam-105b');
     const f = await chat.suggestIntention({ requestId: 'i1', language: 'en-IN', thoughts: 'I need Sunday to myself.' }, signal);
     expect(f.needToSay).toBe('I need Sunday to myself.');
+    expect(replies).toHaveLength(0);
+  });
+});
+
+describe('drills', () => {
+  const req = {
+    requestId: 'd1',
+    scenario: { title: 'Weekend work', counterpartName: 'Ravi', counterpartRole: 'my team lead', situation: 'He wants me this weekend.' },
+    language: 'en-IN',
+    card: { version: 1, needToSay: "I'm not available this weekend.", preferNotToAgree: 'Working Saturday', couldOffer: '' },
+    theirLine: 'Saturday morning at least?',
+    yourReply: 'I guess I could come in for a few hours.',
+  };
+  const opts = (holds: string) => ({
+    options: [
+      { kind: 'holds', text: holds, why: 'Keeps your point.' },
+      { kind: 'concedes', text: 'Fine, Saturday morning.', why: 'Gives up Saturday.' },
+      { kind: 'vague', text: "I'll see.", why: 'Leaves it open.' },
+    ],
+  });
+
+  it('needs exactly one reply of each kind', () => {
+    expect(drillOutput.safeParse(opts('No.').options).success).toBe(true);
+    const twoHolds = [...opts('No.').options.slice(0, 2), { kind: 'holds', text: 'x', why: 'y' }];
+    expect(drillOutput.safeParse(twoHolds).success).toBe(false);
+  });
+
+  it('retries when the model copies template slots, and returns the real drill', async () => {
+    const replies = [JSON.stringify(opts('<reply>')), JSON.stringify(opts("I'm not available this weekend."))];
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ choices: [{ message: { content: replies.shift() } }] })));
+    const chat = createSarvamChat(KEY, 'sarvam-105b-conversations', 'sarvam-105b');
+    const out = await chat.drill(req, signal);
+    expect(out.find((o) => o.kind === 'holds')?.text).toBe("I'm not available this weekend.");
     expect(replies).toHaveLength(0);
   });
 });

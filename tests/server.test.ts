@@ -16,6 +16,12 @@ function fakeChat(delayMs = 0): ChatProvider {
     coach: () => wait(null),
     suggestIntention: () => wait({ needToSay: 'x', preferNotToAgree: '', couldOffer: '' }),
     suggestCue: () => wait({ mainPoint: 'x', opening: '', fallback: '' }),
+    drill: () =>
+      wait([
+        { kind: 'holds' as const, text: "I'm not available this weekend.", why: 'Keeps your point.' },
+        { kind: 'concedes' as const, text: 'Maybe Saturday morning.', why: 'Gives up Saturday.' },
+        { kind: 'vague' as const, text: "I'll see what I can do.", why: 'Leaves it open.' },
+      ]),
   };
 }
 
@@ -153,6 +159,45 @@ describe('opening line', () => {
     });
     expect(res.status).toBe(200);
     expect((await res.json()).text).toBe('We need to talk about the weekend.');
+    ctx.server.close();
+  });
+});
+
+describe('drill route', () => {
+  it('returns three options and rejects a drill without the reply', async () => {
+    const ctx = await serve({ ...providersFromEnv({}), chat: fakeChat() });
+    const body = {
+      requestId: 'd1',
+      scenario,
+      language: 'hi-IN',
+      card: { version: 1, needToSay: "I'm not available this weekend.", preferNotToAgree: '', couldOffer: '' },
+      theirLine: 'Saturday?',
+      yourReply: 'Maybe.',
+    };
+    const ok = await post(ctx.base, '/api/drill', body);
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).options).toHaveLength(3);
+    const bad = await post(ctx.base, '/api/drill', { ...body, requestId: 'd2', yourReply: ' ' });
+    expect(bad.status).toBe(400);
+    ctx.server.close();
+  });
+});
+
+describe('spoken replies by language', () => {
+  it('speaks in the 11 voice languages and refuses the rest with a clear code', async () => {
+    const spoken: string[] = [];
+    const speech = {
+      sttModel: 'fake',
+      ttsModel: 'fake',
+      transcribe: async () => 'x',
+      speak: async (_t: string, language: string) => (spoken.push(language), { audioBase64: 'AA==', mime: 'audio/wav' }),
+    };
+    const ctx = await serve({ ...providersFromEnv({}), chat: fakeChat(), speech });
+    expect((await post(ctx.base, '/api/speech/speak', { text: 'नमस्ते', language: 'hi-IN' })).status).toBe(200);
+    const ur = await post(ctx.base, '/api/speech/speak', { text: 'سلام', language: 'ur-IN' });
+    expect(ur.status).toBe(400);
+    expect((await ur.json()).error).toBe('speech_unsupported');
+    expect(spoken).toEqual(['hi-IN']);
     ctx.server.close();
   });
 });

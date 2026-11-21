@@ -9,8 +9,9 @@ import {
   isComposingAlternative,
 } from '../core/tree';
 import { LIMITS, type Message, type Session } from '../core/types';
-import type { StatusResponse } from '../shared/api';
+import { speaksLanguage, type StatusResponse } from '../shared/api';
 import { CoachPanel } from './Coach';
+import { DrillPanel } from './Drill';
 import { CompactCard } from './IntentionCard';
 import { Icon, IconButton } from './icons';
 import type { Speaker } from './speech';
@@ -38,7 +39,10 @@ export function Practice(p: Props) {
   const leaf = path[path.length - 1];
   const [compareAt, setCompareAt] = useState<string | null>(null);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [drillId, setDrillId] = useState<string | null>(null);
+  const drillFor = drillId ? s.messages[drillId] : undefined;
   const voiceAvailable = !!p.status?.speech.available;
+  const spoken = voiceAvailable && speaksLanguage(s.language);
 
   const compareKids = compareAt ? childrenOf(s, compareAt) : [];
   const comparing = compareKids.length >= 2;
@@ -76,7 +80,7 @@ export function Practice(p: Props) {
           <span className="hint"> · {scenario.title}</span>
         </p>
         <div className="tools">
-          {voiceAvailable && (
+          {spoken && (
             <IconButton
               icon={p.speakReplies ? 'speaker' : 'mute'}
               label={p.speakReplies ? 'Mute spoken replies' : 'Speak replies aloud'}
@@ -121,6 +125,7 @@ export function Practice(p: Props) {
                 isLeaf={m.id === leaf.id}
                 forkMode={forkMode}
                 onCompare={() => setCompareAt(m.id)}
+                onDrill={() => setDrillId(m.id)}
               />
             ))}
             {s.pending && s.pending.parentId === leaf.id && (
@@ -138,7 +143,19 @@ export function Practice(p: Props) {
               </>
             )}
           </ol>
-          <CoachPanel s={s} dispatch={dispatch} />
+          {drillFor ? (
+            <DrillPanel
+              s={s}
+              reply={drillFor}
+              onClose={() => setDrillId(null)}
+              onUse={(checkpointId, text) => {
+                dispatch({ type: 'START_ALTERNATIVE', checkpointId, draft: text });
+                setDrillId(null);
+              }}
+            />
+          ) : (
+            <CoachPanel s={s} dispatch={dispatch} onDrill={setDrillId} />
+          )}
           <div ref={endRef} className="thread-end" />
           <Composer key={leaf.id} {...p} parentId={leaf.id} forkMode={forkMode} onVoice={openVoice} />
         </>
@@ -157,7 +174,14 @@ export function Practice(p: Props) {
   );
 }
 
-function Bubble(props: { p: Props; m: Message; isLeaf: boolean; forkMode: boolean; onCompare: () => void }) {
+function Bubble(props: {
+  p: Props;
+  m: Message;
+  isLeaf: boolean;
+  forkMode: boolean;
+  onCompare: () => void;
+  onDrill: () => void;
+}) {
   const { p, m } = props;
   const { s, dispatch } = p;
   if (m.speaker === 'user') {
@@ -165,7 +189,10 @@ function Bubble(props: { p: Props; m: Message; isLeaf: boolean; forkMode: boolea
     return (
       <li className="bubble user">
         <p>{m.text}</p>
-        {s.intentions.length > 1 && <span className="hint">card v{v}</span>}
+        <div className="bubble-tools">
+          {s.intentions.length > 1 && <span className="hint">card v{v}</span>}
+          <IconButton className="small" icon="target" label="Drill this moment" onClick={props.onDrill} />
+        </div>
       </li>
     );
   }
@@ -177,7 +204,7 @@ function Bubble(props: { p: Props; m: Message; isLeaf: boolean; forkMode: boolea
       <span className="who">{s.scenario.counterpartName}</span>
       <p>{m.text}</p>
       <div className="bubble-tools">
-        {p.status?.speech.available && (
+        {p.status?.speech.available && speaksLanguage(s.language) && (
           <IconButton
             className="small"
             icon={speaking ? 'stop' : 'speaker'}
@@ -192,7 +219,7 @@ function Bubble(props: { p: Props; m: Message; isLeaf: boolean; forkMode: boolea
         {(kids.length > 1 || composingHere) && (
           <Rewind s={s} checkpoint={m} dispatch={dispatch} onCompare={props.onCompare} composing={composingHere} />
         )}
-        {kids.length === 1 && !s.pending && (
+        {kids.length === 1 && !s.pending && !composingHere && (
           <IconButton
             className="small"
             icon="rewind"

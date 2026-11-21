@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildActorRequest } from '../core/requests';
 import { submitBlocker } from '../core/session';
-import type { StatusResponse } from '../shared/api';
+import { speaksLanguage, type StatusResponse } from '../shared/api';
 import { api, isAbort, newId } from './api';
 import { Finish } from './Finish';
 import { IconButton } from './icons';
@@ -44,7 +44,7 @@ export function App() {
           text: res.text,
           now: Date.now(),
         });
-        if (speakReplies && status?.speech.available) {
+        if (speakReplies && status?.speech.available && speaksLanguage(s.language)) {
           speaker.speak(actorMessageId, res.text, s.scenario.voice);
         }
       } catch (e) {
@@ -98,7 +98,7 @@ export function App() {
           status={status}
           unlockAudio={speaker.unlock}
           onRehearse={(id, line, voice) => {
-            if (status?.speech.available && speakReplies) speaker.speak(id, line, voice);
+            if (status?.speech.available && speakReplies && speaksLanguage(s.language)) speaker.speak(id, line, voice);
           }}
         />
       )}

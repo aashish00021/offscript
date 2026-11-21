@@ -278,3 +278,36 @@ button.pill .i { width: 1rem; height: 1rem; color: var(--accent); }
 .disclose.open .i { transform: rotate(180deg); }
 .fork-note { display: flex; gap: 0.4rem; align-items: center; }
 .composer.paused { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; }
+
+/* Drill */
+.bubble.user .bubble-tools { justify-content: flex-end; margin-top: 0.2rem; }
+.bubble.user button.icon.small { color: rgba(255, 253, 248, 0.75); }
+.bubble.user button.icon.small:hover:not(:disabled) { color: var(--paper); background: rgba(255, 253, 248, 0.15); }
+.drill { margin-top: 1.4rem; padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); display: grid; gap: 0.75rem; }
+.drill-head { display: flex; justify-content: space-between; align-items: center; }
+.drill-title { display: inline-flex; gap: 0.45rem; align-items: center; font-weight: 700; }
+.drill-title .i { color: var(--accent); }
+.drill-their { color: var(--muted); }
+.drill-their .who { display: block; }
+.drill-ask { font-weight: 700; }
+.drill-options { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+button.drill-option {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ivory);
+  color: var(--ink);
+}
+button.drill-option:hover:not(:disabled) { border-color: var(--ink); }
+button.drill-option:disabled { opacity: 1; cursor: default; }
+button.drill-option.shown { opacity: 0.6; }
+button.drill-option.shown.holds { opacity: 1; border-color: #2f6b4f; background: #eef5ef; }
+button.drill-option.picked { opacity: 1; box-shadow: 0 0 0 2px var(--ink); }
+.drill-why { font-size: 0.88rem; color: var(--muted); display: inline-flex; gap: 0.35rem; align-items: baseline; }
+.drill-why .i { width: 1rem; height: 1rem; color: #2f6b4f; align-self: center; }
+.drill-result { display: grid; gap: 0.6rem; }
+.drill-result .primary { display: inline-flex; gap: 0.45rem; align-items: center; }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { submitBlocker } from '../core/session';
 import { activeIntention, activePath } from '../core/tree';
+import { speaksLanguage } from '../shared/api';
 import type { Session } from '../core/types';
 import { IconButton } from './icons';
 import { useRecorder, type Speaker } from './speech';
@@ -121,6 +122,7 @@ export function VoiceMode(props: {
         <p className="voice-status">{status}</p>
         {phase === 'thinking' && heard && <p className="voice-heard">“{heard}”</p>}
         {phase !== 'thinking' && lastLine && <p className="voice-line">{lastLine.text}</p>}
+        {!speaksLanguage(s.language) && <p className="hint">{name}'s replies appear as text in this language.</p>}
         {note && <p className="hint">{note}</p>}
         {failed && (
           <p className="fail" role="alert">

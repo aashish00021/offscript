@@ -27,7 +27,16 @@ export function providersFromEnv(env: NodeJS.ProcessEnv): Providers {
     const refuse = async (): Promise<never> => {
       throw new ProviderError('provider_unavailable', `${missingKey} Add it to .env and restart.`);
     };
-    chat = { name: 'sarvam', model: null, actor: refuse, opening: refuse, coach: refuse, suggestIntention: refuse, suggestCue: refuse };
+    chat = {
+      name: 'sarvam',
+      model: null,
+      actor: refuse,
+      opening: refuse,
+      coach: refuse,
+      suggestIntention: refuse,
+      suggestCue: refuse,
+      drill: refuse,
+    };
   }
 
   const speechWanted = env.SPEECH_ENABLED !== 'false';

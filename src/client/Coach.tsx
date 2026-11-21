@@ -15,7 +15,15 @@ type View =
   | { kind: 'found'; f: VerifiedFinding };
 
 /** One observation, only after it's asked for. It cannot change an approved card. */
-export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) => void }) {
+export function CoachPanel({
+  s,
+  dispatch,
+  onDrill,
+}: {
+  s: Session;
+  dispatch: (a: Action) => void;
+  onDrill: (messageId: string) => void;
+}) {
   const [view, setView] = useState<View>({ kind: 'idle' });
   const ctrl = useRef<AbortController | null>(null);
   const sRef = useRef(s);
@@ -126,6 +134,15 @@ export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) 
               }}
             >
               Try another reply
+            </button>
+            <button
+              className="pill"
+              onClick={() => {
+                onDrill(view.f.message.id);
+                setView({ kind: 'idle' });
+              }}
+            >
+              <Icon name="target" /> Drill it
             </button>
             <IconButton icon="close" label="Dismiss" onClick={() => setView({ kind: 'idle' })} />
           </div>

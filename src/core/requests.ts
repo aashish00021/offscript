@@ -1,6 +1,6 @@
-import type { ActorRequest, CoachRequest, CueSuggestRequest, OpeningRequest, ScenarioPayload } from '../shared/api';
+import type { ActorRequest, CoachRequest, CueSuggestRequest, DrillRequest, OpeningRequest, ScenarioPayload } from '../shared/api';
 import { activeIntention, activePath, getIntention, intentionForNode, latestIntention, pathTo } from './tree';
-import { scenarioIsReady, type IntentionVersion, type Scenario, type Session } from './types';
+import { scenarioIsReady, type IntentionVersion, type Message, type Scenario, type Session } from './types';
 
 /** What the server needs to know about the situation. Opening line and voice stay client-side. */
 export const scenarioPayload = (sc: Scenario): ScenarioPayload => ({
@@ -74,5 +74,23 @@ export function buildCueRequest(s: Session, requestId: string): CueSuggestReques
       .filter((m) => m.speaker === 'user')
       .map((m) => m.text)
       .slice(-6),
+  };
+}
+
+/**
+ * A drill for one of the user's replies: the line they were answering, what they said,
+ * and the card version that reply was sent under.
+ */
+export function buildDrillRequest(s: Session, reply: Message, requestId: string): DrillRequest {
+  const their = reply.parentId ? s.messages[reply.parentId] : undefined;
+  const card = getIntention(s, reply.intentionVersionId);
+  if (reply.speaker !== 'user' || !their || !card || !scenarioIsReady(s.scenario)) throw new Error('Nothing to drill here');
+  return {
+    requestId,
+    scenario: scenarioPayload(s.scenario),
+    language: s.language,
+    card: cardPayload(card),
+    theirLine: their.text,
+    yourReply: reply.text,
   };
 }
