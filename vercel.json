@@ -5,6 +5,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }],
+  "regions": ["bom1"],
   "functions": { "api/index.ts": { "maxDuration": 60 } },
   "headers": [
     {
