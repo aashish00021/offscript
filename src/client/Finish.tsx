@@ -5,6 +5,7 @@ import type { Action } from '../core/session';
 import { activeIntention, activePath } from '../core/tree';
 import type { CueFields, Session } from '../core/types';
 import { api, isAbort, newId } from './api';
+import { Icon, IconButton } from './icons';
 
 export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => void }) {
   const scenario = s.scenario;
@@ -44,9 +45,7 @@ export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => v
     <div className="sheet">
       <header className="scene">
         <h1>Take this with you.</h1>
-        <button className="quiet" onClick={() => dispatch({ type: 'GO_TO_PHASE', phase: 'practice' })}>
-          Back
-        </button>
+        <IconButton icon="back" label="Back to practice" onClick={() => dispatch({ type: 'GO_TO_PHASE', phase: 'practice' })} />
       </header>
 
       {draft ? (
@@ -105,7 +104,9 @@ export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => v
             </p>
           )}
           <div className="row">
-            <button
+            <IconButton
+              icon={copied ? 'check' : 'copy'}
+              label={copied ? 'Copied' : 'Copy'}
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(text);
@@ -115,15 +116,17 @@ export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => v
                   setError('Copy was blocked. Download the file instead.');
                 }
               }}
+            />
+            <a
+              className="icon"
+              aria-label="Download"
+              title="Download"
+              download="my-cue-card.txt"
+              href={`data:text/plain;charset=utf-8,${encodeURIComponent(text)}`}
             >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-            <a className="quiet" download="my-cue-card.txt" href={`data:text/plain;charset=utf-8,${encodeURIComponent(text)}`}>
-              Download
+              <Icon name="download" />
             </a>
-            <button className="quiet" onClick={() => dispatch({ type: 'SET_CUE_DRAFT', fields: { ...approved } })}>
-              Edit
-            </button>
+            <IconButton icon="edit" label="Edit" onClick={() => dispatch({ type: 'SET_CUE_DRAFT', fields: { ...approved } })} />
           </div>
           <p className="hint">Kept in this tab. Nothing is shared.</p>
           {error && <p className="fail">{error}</p>}

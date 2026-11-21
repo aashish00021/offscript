@@ -5,6 +5,7 @@ import type { Action } from '../core/session';
 import { activeIntention, activePath, childrenOf } from '../core/tree';
 import { LIMITS, type Session } from '../core/types';
 import { api, isAbort, newId } from './api';
+import { Icon, IconButton } from './icons';
 
 type View =
   | { kind: 'idle' }
@@ -55,8 +56,13 @@ export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) 
   if (view.kind === 'idle') {
     return (
       <p className="coach-ask">
-        <button className="quiet" onClick={ask} disabled={!hasUserTurn || !!s.pending}>
-          {hasUserTurn ? 'One observation' : 'Reply once, then you can ask'}
+        <button
+          className="pill"
+          onClick={ask}
+          disabled={!hasUserTurn || !!s.pending}
+          title={hasUserTurn ? 'One observation about your own words' : 'Reply once, then you can ask'}
+        >
+          <Icon name="spark" /> Observation
         </button>
       </p>
     );
@@ -67,31 +73,27 @@ export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) 
       {view.kind === 'loading' && (
         <p>
           Reading what you said…{' '}
-          <button
-            className="quiet"
+          <IconButton
+            className="small"
+            icon="close"
+            label="Cancel"
             onClick={() => {
               ctrl.current?.abort();
               setView({ kind: 'idle' });
             }}
-          >
-            Cancel
-          </button>
+          />
         </p>
       )}
       {view.kind === 'none' && (
         <p>
           {view.reason}{' '}
-          <button className="quiet" onClick={() => setView({ kind: 'idle' })}>
-            Dismiss
-          </button>
+          <IconButton className="small" icon="close" label="Dismiss" onClick={() => setView({ kind: 'idle' })} />
         </p>
       )}
       {view.kind === 'error' && (
         <p className="fail" role="alert">
           {view.message}{' '}
-          <button className="quiet" onClick={() => setView({ kind: 'idle' })}>
-            Dismiss
-          </button>
+          <IconButton className="small" icon="close" label="Dismiss" onClick={() => setView({ kind: 'idle' })} />
         </p>
       )}
       {view.kind === 'found' && (
@@ -125,9 +127,7 @@ export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) 
             >
               Try another reply
             </button>
-            <button className="quiet" onClick={() => setView({ kind: 'idle' })}>
-              Dismiss
-            </button>
+            <IconButton icon="close" label="Dismiss" onClick={() => setView({ kind: 'idle' })} />
           </div>
         </>
       )}

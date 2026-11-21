@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { FIELD_LABELS } from '../core/coach';
+import { Icon, IconButton } from './icons';
 import type { IntentionFields, IntentionVersion } from '../core/types';
 
 const HINTS: Record<keyof IntentionFields, string> = {
@@ -91,13 +92,10 @@ export function CompactCard(props: {
     <section className="intention" aria-label="Your intention">
       <p className="intention-line">
         <span>{card.needToSay}</span>
-        <button className="quiet" onClick={props.onEdit} disabled={props.disabled}>
-          Edit
-        </button>
+        <IconButton icon="edit" label="Edit your card" onClick={props.onEdit} disabled={props.disabled} />
       </p>
-      <button className="quiet tiny" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? 'Hide the rest' : 'Boundaries and offers'}
-        {props.history.length > 1 ? `, card v${card.version}` : ''}
+      <button className={`quiet tiny disclose${open ? ' open' : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        Boundaries and offers{props.history.length > 1 ? `, card v${card.version}` : ''} <Icon name="chevron" />
       </button>
       {open && (
         <div className="intention-more">

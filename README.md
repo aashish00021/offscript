@@ -21,13 +21,13 @@ Offscript is built around four ideas:
 3. **Rewind instead of restart.** Any reply can be retried from the same moment. Attempts are kept side by side, so you can compare "what I said" against "what I wish I'd said" and see how the other person responded to each.
 4. **Feedback that quotes you, and asks rather than judges.** On request, a separate coach gives one observation. It must quote your exact words, and the app checks that quote against the transcript before showing it. If you seem to have conceded something on your card, the app asks *"Is that an intentional change?"* instead of marking it as a mistake. Your goals are yours to change.
 
-**Voice and Indian languages.** You can practise by speaking: press **Talk**, say your reply, and pause. Your speech is transcribed and sent, and the other person's reply is spoken aloud. This uses [Sarvam AI](https://docs.sarvam.ai/) models for chat, speech-to-text and text-to-speech, across English and 10 Indian languages (Hindi is the one tested live).
+**Voice and Indian languages.** Practise as a chat by typing, or open **voice mode** and talk face to face: an orb listens while you speak, sends when you pause, and moves with the other person's voice as they answer. Every line also appears in the chat. This uses [Sarvam AI](https://docs.sarvam.ai/) models for chat, speech-to-text and text-to-speech, across English and 10 Indian languages (Hindi is the one tested live).
 
 ### What a session looks like
 
 1. **Describe the conversation.** What it's about, who you're talking to, who they are to you, and what's going on. Optionally, write how they open, or leave it blank and the AI opens in character. Two examples can prefill the form.
 2. **Make your card.** Dump your thoughts; the AI drafts the card from your own words; you edit and approve it.
-3. **Rehearse.** The other person speaks first. Reply by talking or typing. You get up to 6 replies per attempt and up to 3 attempts at any point.
+3. **Rehearse.** The other person speaks first. Reply in the chat, or switch to voice mode and just talk. You get up to 6 replies per attempt and up to 3 attempts at any point.
 4. **Ask for one observation** whenever you want it, and **try another reply** from any earlier point. **Compare** attempts side by side.
 5. **Leave with a cue card.** The main point, a way to start, and a line to come back to, suggested from your words and approved by you. You can copy or download it.
 
@@ -86,7 +86,7 @@ src/core/        pure TypeScript, no React — what most tests cover
   coach.ts       verifies coach findings against the real transcript
   cue.ts         flags promises the user never wrote; cue-card text
 src/shared/      zod request/response schemas, language list, example situations
-src/client/      React UI (setup form, practice, compare, cue card, voice)
+src/client/      React UI (setup form, chat, voice mode with orb, compare, cue card)
 server/          Express API, Sarvam adapter (chat + speech), request idempotency
 tests/           vitest
 ```
@@ -99,4 +99,5 @@ tests/           vitest
 - **Untrusted text stays data.** Everything the user writes (the situation, the card, the replies) is sent to the model inside `<data>` tags, with an instruction to treat it as data, never as instructions. Requests and model output are validated with zod. Everything renders as plain React text (no `dangerouslySetInnerHTML`). Model output is never executed, and URLs in it are never followed.
 - **Requests can't double-fire or land in the wrong place.** Each submit has a unique request ID, guarded in the reducer, by an in-flight ref, and by a server-side idempotency cache. Responses that arrive late, after a cancel, on another attempt or after a reset either land under their original parent or are dropped. A failed request commits nothing, and the draft stays in the composer.
 - **Model output is checked, not trusted.** The server retries when a model returns an empty card, malformed JSON or a garbled quote. If a quote's ending is garbled, the longest matching run of its opening words (at least 4) is used, so the shown quote is always real text from the message.
-- **Voice.** **Talk** opens the microphone and closes it after about 2 s of silence, on Stop, or at 25 s. The clip is transcribed and sent as the reply straight away. Typing and **Say this** always work too. Replies are spoken with a female or male voice the user picks per situation. A **Speak replies** switch turns that off.
+- **Voice mode.** A hands-free loop: listen → transcribe → reply → speak → listen. The microphone closes after about 1.2 s of silence, on a tap, or at 25 s. A clip with less than 0.4 s of detected speech is never uploaded, so room noise can't turn into an invented reply.
+- **Spoken replies.** Each reply is split so its first sentence is synthesised and played while the rest is still being generated. The parts play back to back through one Web Audio context, which also drives the orb's level. Replies use the female or male voice picked for the situation and can be muted from the chat header.

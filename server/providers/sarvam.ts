@@ -73,7 +73,7 @@ function counterpartPrompt(req: Pick<OpeningRequest, 'scenario' | 'card' | 'lang
     `<data>${JSON.stringify({ situation_title: sc.title, your_name: sc.counterpartName, who_you_are_to_the_user: sc.counterpartRole, situation_from_the_users_side: sc.situation })}</data>`,
     `The situation is written by the user about you, in any language: first person in it ("I", "me", "my"; मैं, मुझे, मेरा) means the USER; third person ("he", "she", "they"; वह, उसने, उसे) or ${JSON.stringify(sc.counterpartName)} means YOU. Keep that straight, especially about who owes, asked or did what.`,
     "Speak ONLY as that person, in first person, from their side. Never speak as the user, never take the user's side, and never repeat the user's goals back as if they were yours.",
-    `Say only what that person would say out loud, in ${languageName(req.language)}. Everyday words, the way people actually talk. One or two short sentences. No narration, no stage directions, no lists, no speeches.`,
+    `Say only what that person would say out loud, in ${languageName(req.language)}. Everyday words, the way people actually talk. One or two short sentences, under 30 words in total, because your lines are spoken aloud. No narration, no stage directions, no lists, no speeches.`,
     'Answer the thing the user just said, even if they talk around the situation, hesitate, or explain it in a messy way. React to that. You may partly agree, ask one question, or hold your position. Do not agree to everything at once, and do not escalate forever; if they stay clear over several turns you may soften.',
     'Never insult, threaten, diagnose, comment on mental health, rate or score the user, or give coaching or advice. You are a practice simulation; never claim to be a real person.',
     ...(opts.withCard
@@ -258,8 +258,10 @@ export function createSarvamSpeech(key: string, sttModel: string, ttsModel: stri
 
     async speak(text, language, signal, voice) {
       const named = ttsModel.startsWith('bulbul:v3') && (voice === 'priya' || voice === 'shubh') ? voice : speaker;
+      // Dashes make the voice stop mid-sentence for a long beat; a comma reads naturally.
+      const spoken = text.replace(/\s*[—–]\s*/g, ', ').slice(0, 600);
       const body = JSON.stringify({
-        text: text.slice(0, 600),
+        text: spoken,
         language_code: language,
         model: ttsModel,
         speaker: named,
