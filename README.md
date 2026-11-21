@@ -76,12 +76,11 @@ npm run build && npm start    # production: serves dist/ with a strict CSP on 0.
 
 ### Deploy
 
-Any Node host that runs a long-lived server works (Render, Railway, Fly.io, a VM). Static hosts such as Vercel or Netlify static sites don't, because the API is an Express server.
+**Vercel (how the live demo runs):** import the repo, set `SARVAM_API_KEY` in the project's environment variables, and deploy. `vercel.json` already sets the build (`npm run build` → `dist/`), serves the API from `api/index.ts` as one serverless function in Mumbai (`bom1`, next to Sarvam), and applies the same security headers as `npm start`.
 
-- **Build command:** `npm install && npm run build` (the build needs dev dependencies).
-- **Start command:** `npm start`. It listens on `0.0.0.0:$PORT`; set `HOST` to override.
-- **Environment:** `SARVAM_API_KEY` (required). Optionally `NODE_VERSION=20` or later.
-- **HTTPS is required for the microphone.** Browsers only allow voice input on `https://` or `localhost`; hosted platforms provide HTTPS by default.
+**Any Node host** (Render, Railway, Fly.io, a VM): build with `npm install && npm run build`, start with `npm start` (listens on `0.0.0.0:$PORT`; `HOST` overrides), and set `SARVAM_API_KEY`.
+
+The microphone only works over `https://` (or `localhost`), which hosted platforms provide by default.
 
 ---
 
