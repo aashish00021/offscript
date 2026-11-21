@@ -38,7 +38,7 @@ describe('live English text loop, without calling Sarvam', () => {
                 content: JSON.stringify({
                   finding: {
                     kind: 'observation',
-                    messageId: 'uB',
+                    messageId: 't2', // the model sees short ids; t2 is uB on this path
                     quote: "I'm not available this weekend.",
                     note: 'Your point is in this reply.',
                   },
@@ -58,6 +58,9 @@ describe('live English text loop, without calling Sarvam', () => {
     const reply = await chat.actor(actorReq, signal);
     expect(reply).toBe('Who covers your part, then?');
     expect(JSON.stringify(seen[0])).not.toContain('maybe Saturday');
+    // The user-written situation reaches the model as data, not as instructions.
+    const system = (seen[0].messages as Array<{ content: string }>)[0].content;
+    expect(system).toMatch(/<data>\{"situation_title":"Saying no to weekend work","your_name":"Ravi"/);
 
     s = reducer(s, {
       type: 'ACTOR_RESPONSE',
@@ -92,7 +95,7 @@ describe('live English text loop, without calling Sarvam', () => {
       now: 60,
     });
     expect(s.cues[0].mainPoint).toBe("I'm not available this weekend.");
-    expect(seen[0]).toMatchObject({ model: 'sarvam-105b-conversations', temperature: 0.6 });
+    expect(seen[0]).toMatchObject({ model: 'sarvam-105b-conversations', temperature: 0.8 });
     expect(seen[0].reasoning_effort).toBeUndefined();
     expect(seen[0].response_format).toBeUndefined();
   });

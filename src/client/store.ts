@@ -2,7 +2,7 @@ import { useEffect, useReducer } from 'react';
 import { initialSession, reducer } from '../core/session';
 import type { Session } from '../core/types';
 
-const KEY = 'offscript.session.v1';
+const KEY = 'offscript.session.v2';
 
 /**
  * Session state lives in this tab's sessionStorage so a reload doesn't lose a

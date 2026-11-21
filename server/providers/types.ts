@@ -5,6 +5,7 @@ import type {
   CoachRequest,
   CueSuggestRequest,
   IntentionSuggestRequest,
+  OpeningRequest,
   ProviderName,
 } from '../../src/shared/api';
 
@@ -12,6 +13,8 @@ export interface ChatProvider {
   name: ProviderName;
   model: string | null;
   actor(req: ActorRequest, signal: AbortSignal): Promise<string>;
+  /** The counterpart's first line, for a situation whose opening the user left blank. */
+  opening(req: OpeningRequest, signal: AbortSignal): Promise<string>;
   /** Read-only: receives a copy of the transcript and returns a proposal, nothing else. */
   coach(req: CoachRequest, signal: AbortSignal): Promise<CoachFindingRaw | null>;
   suggestIntention(req: IntentionSuggestRequest, signal: AbortSignal): Promise<IntentionFields>;
@@ -22,7 +25,7 @@ export interface SpeechProvider {
   sttModel: string;
   ttsModel: string;
   transcribe(audio: Buffer, mime: string, language: string, signal: AbortSignal): Promise<string>;
-  speak(text: string, language: string, signal: AbortSignal): Promise<{ audioBase64: string; mime: string }>;
+  speak(text: string, language: string, signal: AbortSignal, voice?: string): Promise<{ audioBase64: string; mime: string }>;
 }
 
 export class ProviderError extends Error {

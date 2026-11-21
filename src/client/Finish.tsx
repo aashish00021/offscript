@@ -4,11 +4,10 @@ import { buildCueRequest } from '../core/requests';
 import type { Action } from '../core/session';
 import { activeIntention, activePath } from '../core/tree';
 import type { CueFields, Session } from '../core/types';
-import { getScenario } from '../shared/scenarios';
 import { api, isAbort, newId } from './api';
 
 export function Finish({ s, dispatch }: { s: Session; dispatch: (a: Action) => void }) {
-  const scenario = getScenario(s.scenarioId)!;
+  const scenario = s.scenario;
   const card = activeIntention(s)!;
   const approved = s.cues[s.cues.length - 1];
   const draft = s.cueDraft;

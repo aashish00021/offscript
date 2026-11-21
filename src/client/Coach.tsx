@@ -96,8 +96,7 @@ export function CoachPanel({ s, dispatch }: { s: Session; dispatch: (a: Action) 
       )}
       {view.kind === 'found' && (
         <>
-          <blockquote>“{view.f.quote}”</blockquote>
-          {view.f.question && <p>{view.f.question}</p>}
+          {view.f.question ? <p className="question">{view.f.question}</p> : <blockquote>“{view.f.quote}”</blockquote>}
           {view.f.note && <p>{view.f.note}</p>}
           {view.f.newerCardVersion && (
             <p className="hint">Compared with card v{view.f.cardVersion}. You have since approved v{view.f.newerCardVersion}.</p>

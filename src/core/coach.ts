@@ -22,8 +22,24 @@ export interface VerifiedFinding {
 
 const collapse = (t: string) => t.replace(/\s+/g, ' ').trim();
 
-/** Locate `quote` inside `text`; returns the slice of the original text, or null. */
+/**
+ * Locate `quote` inside `text`; returns the slice of the original text, or null.
+ * If the model garbled the end of a quote (e.g. "it're" for "it's"), the longest
+ * matching run of its opening words (at least 4) is used. The result is always
+ * real text from the message.
+ */
 export function findQuote(text: string, quote: string): string | null {
+  const whole = findExact(text, quote);
+  if (whole) return whole;
+  const words = collapse(quote).split(' ');
+  for (let n = words.length - 1; n >= 4; n--) {
+    const hit = findExact(text, words.slice(0, n).join(' ').replace(/[,;:]+$/, ''));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function findExact(text: string, quote: string): string | null {
   const hay = collapse(text);
   const needle = collapse(quote).replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
   if (needle.length < 3) return null;
@@ -51,18 +67,21 @@ export function verifyCoachFinding(s: Session, raw: CoachFindingRaw | null): Ver
   const newerCardVersion = current && current.version !== card.version ? current.version : null;
 
   let question: string | null = null;
-  if (raw.kind === 'possible_change') {
+  let kind = raw.kind;
+  if (kind === 'possible_change') {
     const value = raw.field ? card[raw.field].trim().replace(/[.!?]+$/, '') : '';
-    if (!raw.field || !value) return null;
-    question =
+    // The quote is real, but the card field it points at is empty: show it as a plain observation.
+    if (!raw.field || !value) kind = 'observation';
+    else
+      question =
       `You said “${quote}” here. Card v${card.version}, under “${FIELD_LABELS[raw.field]}”, says: “${value}”. ` +
-      'Is that an intentional change?';
+        'Is that an intentional change?';
   }
   return {
-    kind: raw.kind,
+    kind,
     message,
     quote,
-    note: collapse(raw.note ?? '').slice(0, 280),
+    note: collapse(raw.note ?? '').slice(0, 280).replace(/^\p{Ll}/u, (c) => c.toUpperCase()),
     question,
     suggestion: raw.suggestion ? collapse(raw.suggestion).slice(0, 300) || null : null,
     cardVersion: card.version,

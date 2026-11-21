@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { verifyCoachFinding } from '../src/core/coach';
+import { findQuote, verifyCoachFinding } from '../src/core/coach';
 import { findInsertedCommitments } from '../src/core/cue';
 import { buildActorRequest } from '../src/core/requests';
 import { initialSession, reducer } from '../src/core/session';
 import { activeIntention, activePath, childrenOf } from '../src/core/tree';
-import { CARD_V1, apply, deepFreeze, started, turn } from './helpers';
+import { CARD_V1, SCENARIO, apply, deepFreeze, started, turn } from './helpers';
 
 const texts = (s: ReturnType<typeof started>) => activePath(s).map((m) => m.text);
 
@@ -117,7 +117,9 @@ describe('coach', () => {
     expect(verifyCoachFinding(s, { ...base, messageId: 'u1', quote: 'not available this weekend' })).toBeNull();
     expect(verifyCoachFinding(s, { ...base, messageId: 'a2', quote: 'Great' })).toBeNull();
     expect(verifyCoachFinding(s, { ...base, messageId: 'nope', quote: 'Sure' })).toBeNull();
-    expect(verifyCoachFinding(s, { ...base, kind: 'possible_change', messageId: 'u2', quote: 'Saturday is fine' })).toBeNull();
+    // A possible change that names no card field (or an empty one) keeps its real quote but asks no question.
+    const noField = verifyCoachFinding(s, { ...base, kind: 'possible_change', messageId: 'u2', quote: 'Saturday is fine' });
+    expect(noField).toMatchObject({ kind: 'observation', quote: 'Saturday is fine', question: null });
 
     const ok = verifyCoachFinding(s, { ...base, messageId: 'u2', quote: 'saturday  is fine' });
     expect(ok?.quote).toBe('Saturday is fine');
@@ -226,7 +228,46 @@ describe('cue card', () => {
 
 describe('setup', () => {
   it('cannot start practice without an approved card', () => {
-    const s = apply(initialSession(), { type: 'CHOOSE_SCENARIO', scenarioId: 'weekend-deadline' }, { type: 'START_PRACTICE', openingId: 'r', openingLine: 'x', now: 1 });
+    const s = apply(initialSession(), { type: 'SET_SCENARIO', scenario: SCENARIO }, { type: 'START_PRACTICE', openingId: 'r', openingLine: 'x', now: 1 });
     expect(s.phase).toBe('setup');
+  });
+});
+
+describe('user-written scenario', () => {
+  const card = { type: 'APPROVE_INTENTION' as const, id: 'v1', fields: CARD_V1, now: 1 };
+  const start = (line = 'Saturday works, right?') => ({ type: 'START_PRACTICE' as const, openingId: 'r', openingLine: line, now: 2 });
+
+  it('needs a title, a name, a role and a situation before practice can start', () => {
+    for (const k of ['title', 'counterpartName', 'counterpartRole', 'situation'] as const) {
+      const s = apply(initialSession(), { type: 'SET_SCENARIO', scenario: { ...SCENARIO, [k]: '  ' } }, card, start());
+      expect(s.phase).toBe('setup');
+    }
+    expect(apply(initialSession(), { type: 'SET_SCENARIO', scenario: SCENARIO }, card, start()).phase).toBe('practice');
+  });
+
+  it('needs a non-empty opening line, which becomes the first message', () => {
+    expect(apply(initialSession(), { type: 'SET_SCENARIO', scenario: SCENARIO }, card, start('   ')).phase).toBe('setup');
+    const s = apply(initialSession(), { type: 'SET_SCENARIO', scenario: SCENARIO }, card, start('  Saturday?  '));
+    expect(s.messages.r).toMatchObject({ speaker: 'actor', text: 'Saturday?', parentId: null });
+  });
+
+  it('clamps field lengths and cannot be changed once practice has started', () => {
+    const long = apply(initialSession(), { type: 'SET_SCENARIO', scenario: { ...SCENARIO, situation: 'x'.repeat(2000) } });
+    expect(long.scenario.situation).toHaveLength(600);
+    const s = reducer(started(), { type: 'SET_SCENARIO', scenario: { ...SCENARIO, counterpartName: 'Someone else' } });
+    expect(s.scenario.counterpartName).toBe('Ravi');
+  });
+});
+
+describe('findQuote', () => {
+  const said = "Um, I've done the last two weekends. I guess I could come in for a few hours Saturday morning if it's really needed.";
+  it('keeps the longest real opening when the model garbles the end of a quote', () => {
+    expect(findQuote(said, "I guess I could come in for a few hours Saturday morning if it're really needed")).toBe(
+      'I guess I could come in for a few hours Saturday morning if',
+    );
+  });
+  it('rejects quotes that are not in the message', () => {
+    expect(findQuote(said, 'I will work all of Saturday and Sunday')).toBeNull();
+    expect(findQuote(said, 'I guess I will')).toBeNull();
   });
 });

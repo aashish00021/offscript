@@ -1,6 +1,14 @@
-import type { ActorRequest, CoachRequest, CueSuggestRequest } from '../shared/api';
-import { activeIntention, activePath, getIntention, intentionForNode, pathTo } from './tree';
-import type { IntentionVersion, Session } from './types';
+import type { ActorRequest, CoachRequest, CueSuggestRequest, OpeningRequest, ScenarioPayload } from '../shared/api';
+import { activeIntention, activePath, getIntention, intentionForNode, latestIntention, pathTo } from './tree';
+import { scenarioIsReady, type IntentionVersion, type Scenario, type Session } from './types';
+
+/** What the server needs to know about the situation. Opening line and voice stay client-side. */
+export const scenarioPayload = (sc: Scenario): ScenarioPayload => ({
+  title: sc.title.trim(),
+  counterpartName: sc.counterpartName.trim(),
+  counterpartRole: sc.counterpartRole.trim(),
+  situation: sc.situation.trim(),
+});
 
 const cardPayload = (v: IntentionVersion) => ({
   version: v.version,
@@ -15,10 +23,10 @@ const cardPayload = (v: IntentionVersion) => ({
  */
 export function buildActorRequest(s: Session, requestId: string, parentId: string, reply: string): ActorRequest {
   const card = intentionForNode(s, parentId);
-  if (!card || !s.scenarioId) throw new Error('No approved card or scenario');
+  if (!card || !scenarioIsReady(s.scenario)) throw new Error('No approved card or scenario');
   return {
     requestId,
-    scenarioId: s.scenarioId,
+    scenario: scenarioPayload(s.scenario),
     language: s.language,
     card: cardPayload(card),
     transcript: pathTo(s, parentId).map((m) => ({ id: m.id, speaker: m.speaker, text: m.text })),
@@ -26,8 +34,14 @@ export function buildActorRequest(s: Session, requestId: string, parentId: strin
   };
 }
 
+/** Asks for the counterpart's first line when the user left it blank. */
+export function buildOpeningRequest(s: Session, requestId: string): OpeningRequest {
+  const card = latestIntention(s);
+  if (!card || !scenarioIsReady(s.scenario)) throw new Error('No approved card or scenario');
+  return { requestId, scenario: scenarioPayload(s.scenario), language: s.language, card: cardPayload(card) };
+}
+
 export function buildCoachRequest(s: Session, requestId: string): CoachRequest {
-  if (!s.scenarioId) throw new Error('No scenario');
   const path = activePath(s);
   const versions = new Map<string, IntentionVersion>();
   for (const m of path) {
@@ -38,7 +52,6 @@ export function buildCoachRequest(s: Session, requestId: string): CoachRequest {
   if (current) versions.set(current.id, current);
   return {
     requestId,
-    scenarioId: s.scenarioId,
     language: s.language,
     transcript: path.map((m) => ({
       id: m.id,
@@ -52,10 +65,9 @@ export function buildCoachRequest(s: Session, requestId: string): CoachRequest {
 
 export function buildCueRequest(s: Session, requestId: string): CueSuggestRequest {
   const card = activeIntention(s);
-  if (!card || !s.scenarioId) throw new Error('No approved card or scenario');
+  if (!card) throw new Error('No approved card');
   return {
     requestId,
-    scenarioId: s.scenarioId,
     language: s.language,
     card: cardPayload(card),
     userReplies: activePath(s)

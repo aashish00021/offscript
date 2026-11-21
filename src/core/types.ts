@@ -23,15 +23,32 @@ export interface Message {
   origin: 'scenario' | 'typed' | 'speech' | 'model';
 }
 
+/** The situation the user wants to rehearse. Written by the user (or prefilled from an example). */
 export interface Scenario {
-  id: string;
   title: string;
+  /** Who the user will be talking to, e.g. "Ravi". */
   counterpartName: string;
+  /** Who that person is to the user, e.g. "my team lead". */
   counterpartRole: string;
   situation: string;
+  /** Optional. If blank, the model writes the counterpart's first line. */
   openingLine: string;
-  exampleThoughts: string;
+  /** bulbul:v3 speaker used for the counterpart's spoken lines. */
+  voice: 'priya' | 'shubh';
 }
+
+export const EMPTY_SCENARIO: Scenario = {
+  title: '',
+  counterpartName: '',
+  counterpartRole: '',
+  situation: '',
+  openingLine: '',
+  voice: 'priya',
+};
+
+/** Required before the user can move on: everything except the opening line. */
+export const scenarioIsReady = (sc: Scenario) =>
+  !!(sc.title.trim() && sc.counterpartName.trim() && sc.counterpartRole.trim() && sc.situation.trim());
 
 export interface CueFields {
   mainPoint: string;
@@ -59,7 +76,7 @@ export interface Session {
   /** Incremented on reset; responses from an older epoch are dropped. */
   epoch: number;
   phase: Phase;
-  scenarioId: string | null;
+  scenario: Scenario;
   language: string;
   messyThoughts: string;
   /** Editable, NOT approved. Only APPROVE_INTENTION turns it into a version. */
@@ -87,4 +104,5 @@ export const LIMITS = {
   maxMessageChars: 600,
   maxThoughtsChars: 2000,
   maxFieldChars: 300,
+  scenario: { title: 120, counterpartName: 60, counterpartRole: 200, situation: 600, openingLine: 600 },
 } as const;

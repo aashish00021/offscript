@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { submitBlocker, type Action } from '../core/session';
 import {
   activeIntention,
@@ -10,7 +10,6 @@ import {
 } from '../core/tree';
 import { LIMITS, type Message, type Session } from '../core/types';
 import type { StatusResponse } from '../shared/api';
-import { getScenario } from '../shared/scenarios';
 import { CoachPanel } from './Coach';
 import { CompactCard } from './IntentionCard';
 import { useRecorder } from './speech';
@@ -22,14 +21,20 @@ interface Props {
   onSubmit: (text: string, origin: 'typed' | 'speech') => void;
   onCancel: () => void;
   onRetry: () => void;
-  speaker: { speakingId: string | null; stop: () => void; error: string | null; speak: (id: string, t: string) => void };
+  speaker: {
+    speakingId: string | null;
+    stop: () => void;
+    unlock: () => void;
+    error: string | null;
+    speak: (id: string, t: string, voice?: string) => void;
+  };
   speakReplies: boolean;
   setSpeakReplies: (v: boolean) => void;
 }
 
 export function Practice(p: Props) {
   const { s, dispatch } = p;
-  const scenario = getScenario(s.scenarioId)!;
+  const scenario = s.scenario;
   const path = activePath(s);
   const card = activeIntention(s)!;
   const forkMode = isComposingAlternative(s);
@@ -37,7 +42,15 @@ export function Practice(p: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const focus = [...path].reverse().find((m) => m.speaker === 'actor')!;
-  const earlier = path.slice(0, path.indexOf(focus));
+  const before = path[path.indexOf(focus) - 1];
+  const lastYou = before?.speaker === 'user' ? before : undefined;
+  const earlier = path.slice(0, path.indexOf(focus) - (lastYou ? 1 : 0));
+  const lineRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Keep the new line and the composer in view after each reply.
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    lineRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, [focus.id]);
   const kids = childrenOf(s, focus.id);
   const branchPoint =
     [...path].reverse().find((m) => m.speaker === 'actor' && childrenOf(s, m.id).length > 1) ??
@@ -63,9 +76,23 @@ export function Practice(p: Props) {
 
       <header className="scene">
         <p>
-          With {scenario.counterpartName}, fictional.
+          With {scenario.counterpartName}
+          <span className="hint">, {scenario.title}</span>
         </p>
         <div className="row">
+          {p.status?.speech.available && (
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={p.speakReplies}
+                onChange={(e) => {
+                  if (!e.target.checked) p.speaker.stop();
+                  p.setSpeakReplies(e.target.checked);
+                }}
+              />
+              Speak replies
+            </label>
+          )}
           <button className="quiet" onClick={() => dispatch({ type: 'SET_PAUSED', paused: !s.paused })} aria-pressed={s.paused}>
             {s.paused ? 'Resume' : 'Pause'}
           </button>
@@ -99,9 +126,20 @@ export function Practice(p: Props) {
                     <li key={m.id} className={m.speaker}>
                       <span className="who">{m.speaker === 'user' ? 'You' : scenario.counterpartName}</span>
                       <p>{m.text}</p>
-                      {m.speaker === 'actor' && m.id !== branchPoint?.id && (
+                      {m.speaker === 'actor' && m.id !== branchPoint?.id && childrenOf(s, m.id).length > 1 && (
                         <Rewind s={s} checkpoint={m} dispatch={dispatch} onCompare={() => setCompareAt(m.id)} />
                       )}
+                      {m.speaker === 'actor' &&
+                        m.id !== branchPoint?.id &&
+                        childrenOf(s, m.id).length === 1 &&
+                        !s.pending && (
+                          <button
+                            className="quiet tiny"
+                            onClick={() => dispatch({ type: 'START_ALTERNATIVE', checkpointId: m.id })}
+                          >
+                            Reply differently here
+                          </button>
+                        )}
                     </li>
                   ))}
                 </ol>
@@ -109,14 +147,29 @@ export function Practice(p: Props) {
             </div>
           )}
 
-          <blockquote className="the-line">
+          <div ref={lineRef} className="line-anchor" />
+          {lastYou && !forkMode && (
+            <p className="you-last">
+              <span className="who">You</span>
+              {lastYou.text}
+            </p>
+          )}
+          <blockquote className={`the-line${focus.text.length > 140 ? ' long' : ''}`}>
             <p>{focus.text}</p>
             <footer>{scenario.counterpartName}</footer>
           </blockquote>
 
-          {p.status?.speech.available && (
-            <button className="quiet tiny" onClick={() => (p.speaker.speakingId === focus.id ? p.speaker.stop() : p.speaker.speak(focus.id, focus.text))}>
-              {p.speaker.speakingId === focus.id ? 'Stop' : 'Hear this'}
+          {p.status?.speech.available && p.speaker.speakingId === focus.id && (
+            <p className="recording" role="status">
+              <span className="dot" aria-hidden /> {scenario.counterpartName} is speaking
+              <button className="quiet" onClick={p.speaker.stop}>
+                Stop
+              </button>
+            </p>
+          )}
+          {p.status?.speech.available && p.speaker.speakingId !== focus.id && (
+            <button className="quiet tiny" onClick={() => p.speaker.speak(focus.id, focus.text, scenario.voice)}>
+              Hear this
             </button>
           )}
 
@@ -131,9 +184,19 @@ export function Practice(p: Props) {
             />
           )}
 
-          {pendingHere && <p className="waiting">You: {s.pending!.text}</p>}
+          {pendingHere && (
+            <div className="waiting" role="status">
+              <p className="you-last">
+                <span className="who">You</span>
+                {s.pending!.text}
+              </p>
+              <p className="thinking">
+                {scenario.counterpartName} is replying<span className="dots" aria-hidden><i>.</i><i>.</i><i>.</i></span>
+              </p>
+            </div>
+          )}
 
-          <Composer {...p} parentId={focus.id} forkMode={forkMode} savedCount={kids.length} />
+          <Composer key={focus.id} {...p} parentId={focus.id} forkMode={forkMode} savedCount={kids.length} />
           <CoachPanel s={s} dispatch={dispatch} />
         </>
       )}
@@ -228,13 +291,25 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
   const { s, dispatch } = p;
   const draft = s.drafts[p.parentId] ?? '';
   const [fromSpeech, setFromSpeech] = useState(false);
+  const [heardNothing, setHeardNothing] = useState(false);
   const blocker = submitBlocker(s);
+  const voiceOn = !!p.status?.speech.available;
   const rec = useRecorder(s.language, (t) => {
-    dispatch({ type: 'SET_DRAFT', nodeId: p.parentId, text: draft ? `${draft} ${t}` : t });
+    const heard = t.trim();
+    if (!heard) return setHeardNothing(true);
+    // Anything typed is kept and sent first, then what was heard. A draft left over from an
+    // earlier (failed or cancelled) spoken send is replaced, so it isn't sent twice.
+    const text = draft.trim() && !fromSpeech ? `${draft.trim()} ${heard}` : heard;
+    dispatch({ type: 'SET_DRAFT', nodeId: p.parentId, text });
     setFromSpeech(true);
+    p.onSubmit(text, 'speech');
   });
   const recording = rec.state.kind === 'recording' || rec.state.kind === 'requesting';
   const waitingHere = !!s.pending && s.pending.parentId === p.parentId;
+  const { cancel: cancelRec } = rec;
+  useEffect(() => {
+    if (s.paused) cancelRec();
+  }, [s.paused, cancelRec]);
 
   if (s.paused) {
     return (
@@ -249,6 +324,8 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
 
   const send = () => {
     if (blocker || !draft.trim() || recording) return;
+    p.speaker.unlock();
+    p.speaker.stop();
     p.onSubmit(draft, fromSpeech ? 'speech' : 'typed');
     setFromSpeech(false);
   };
@@ -279,10 +356,10 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
       </label>
       <textarea
         id="reply"
-        rows={4}
+        rows={voiceOn ? 2 : 4}
         maxLength={LIMITS.maxMessageChars}
-        value={draft}
-        placeholder="What would you say?"
+        value={waitingHere ? '' : draft}
+        placeholder={waitingHere ? '' : voiceOn ? 'Say it the way you would.' : 'What would you say?'}
         readOnly={waitingHere}
         aria-invalid={!!s.lastError}
         onChange={(e) => {
@@ -296,13 +373,17 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
           }
         }}
       />
-      {fromSpeech && <p className="quiet-note">Check the transcript. Nothing is sent until you say it.</p>}
+      {fromSpeech && !waitingHere && <p className="quiet-note">That is what was heard.</p>}
       {rec.state.kind === 'recording' && (
         <p className="recording" role="status">
-          <span className="dot" aria-hidden /> Recording {rec.state.seconds}s of {rec.maxSeconds}
+          <span className="dot" aria-hidden /> Listening. A pause sends it.
+          <span className="meter" aria-hidden>
+            <span style={{ transform: `scaleX(${rec.state.level})` }} />
+          </span>
         </p>
       )}
       {rec.state.kind === 'transcribing' && <p role="status">Transcribing…</p>}
+      {heardNothing && rec.state.kind === 'idle' && <p className="quiet-note">Didn't catch that. Tap Talk and try again, or type.</p>}
       {rec.state.kind === 'error' && (
         <p className="fail" role="alert">
           {rec.state.message}
@@ -315,12 +396,27 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
       )}
       <div className="composer-bar">
         <span className="hint" aria-live="polite">
-          {waitingHere ? 'Waiting for a reply' : blocker && !s.pending ? blocker : `${draft.length} / ${LIMITS.maxMessageChars}`}
+          {waitingHere
+            ? 'Waiting for a reply'
+            : blocker && !s.pending
+              ? blocker
+              : voiceOn
+                ? 'Talk about it. A short pause hands it over.'
+                : `${draft.length} / ${LIMITS.maxMessageChars}`}
         </span>
         <span className="row">
-          {p.status?.speech.available && rec.state.kind !== 'recording' && rec.state.kind !== 'transcribing' && (
-            <button className="quiet" onClick={rec.start} disabled={waitingHere || rec.state.kind === 'requesting'}>
-              {rec.state.kind === 'requesting' ? 'Microphone…' : 'Record'}
+          {voiceOn && rec.state.kind !== 'recording' && rec.state.kind !== 'transcribing' && (
+            <button
+              className="primary"
+              onClick={() => {
+                p.speaker.unlock();
+                p.speaker.stop();
+                setHeardNothing(false);
+                rec.start();
+              }}
+              disabled={waitingHere || !!blocker || rec.state.kind === 'requesting'}
+            >
+              {rec.state.kind === 'requesting' ? 'Microphone…' : 'Talk'}
             </button>
           )}
           {rec.state.kind === 'recording' && (
@@ -338,7 +434,7 @@ function Composer(p: Props & { parentId: string; forkMode: boolean; savedCount: 
               Cancel
             </button>
           )}
-          <button className="primary" onClick={send} disabled={!!blocker || !draft.trim() || recording}>
+          <button className={voiceOn ? 'quiet' : 'primary'} onClick={send} disabled={!!blocker || !draft.trim() || recording}>
             {waitingHere ? 'Sending' : 'Say this'}
           </button>
         </span>

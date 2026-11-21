@@ -1,10 +1,19 @@
 import { reducer, initialSession, type Action } from '../src/core/session';
-import type { IntentionFields, Session } from '../src/core/types';
+import type { IntentionFields, Scenario, Session } from '../src/core/types';
 
 export const CARD_V1: IntentionFields = {
   needToSay: "I'm not available this weekend.",
   preferNotToAgree: 'Working Saturday or Sunday.',
   couldOffer: 'Stay late Thursday and Friday.',
+};
+
+export const SCENARIO: Scenario = {
+  title: 'Saying no to weekend work',
+  counterpartName: 'Ravi',
+  counterpartRole: 'my team lead',
+  situation: 'He wants me to work this weekend for a Monday client review.',
+  openingLine: '',
+  voice: 'shubh',
 };
 
 let n = 0;
@@ -18,7 +27,7 @@ export function apply(s: Session, ...actions: Action[]): Session {
 export function started(): Session {
   return apply(
     initialSession(),
-    { type: 'CHOOSE_SCENARIO', scenarioId: 'weekend-deadline' },
+    { type: 'SET_SCENARIO', scenario: SCENARIO },
     { type: 'APPROVE_INTENTION', id: 'v1', fields: CARD_V1, now: 1 },
     { type: 'START_PRACTICE', openingId: 'root', openingLine: 'Saturday works, right?', now: 2 },
   );

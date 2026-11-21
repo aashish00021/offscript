@@ -16,7 +16,7 @@
     "react-dom": "^18.3.1",
     "zod": "^3.25.76"
   },
-  "description": "Laptop-first conversation-practice prototype (hackathon build)",
+  "description": "Rehearse a difficult conversation with an AI counterpart, by text or voice, in English and Indian languages",
   "devDependencies": {
     "@types/express": "^4.17.25",
     "@types/node": "^20.19.43",

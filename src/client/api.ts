@@ -4,6 +4,7 @@ import type {
   CoachRequest,
   CueSuggestRequest,
   IntentionSuggestRequest,
+  OpeningRequest,
   StatusResponse,
 } from '../shared/api';
 import type { CueFields, IntentionFields } from '../core/types';
@@ -40,6 +41,7 @@ const postJson = <T>(path: string, body: unknown, signal?: AbortSignal) =>
 export const api = {
   status: () => request<StatusResponse>('/api/status', {}),
   actor: (b: ActorRequest, signal: AbortSignal) => postJson<{ requestId: string; text: string }>('/api/actor', b, signal),
+  opening: (b: OpeningRequest, signal: AbortSignal) => postJson<{ text: string }>('/api/opening', b, signal),
   coach: (b: CoachRequest, signal: AbortSignal) =>
     postJson<{ finding: CoachFindingRaw | null }>('/api/coach', b, signal),
   suggestIntention: (b: IntentionSuggestRequest, signal: AbortSignal) =>
@@ -52,8 +54,8 @@ export const api = {
       body: audio,
       signal,
     }),
-  speak: (text: string, language: string, signal: AbortSignal) =>
-    postJson<{ audioBase64: string; mime: string }>('/api/speech/speak', { text, language }, signal),
+  speak: (text: string, language: string, signal: AbortSignal, voice?: string) =>
+    postJson<{ audioBase64: string; mime: string }>('/api/speech/speak', { text, language, voice }, signal),
 };
 
 export const newId = (prefix = '') => prefix + crypto.randomUUID();

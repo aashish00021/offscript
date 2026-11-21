@@ -1,6 +1,6 @@
 # Evidence log
 
-This file keeps three things apart: what published sources report, what was observed in other products, and what we only hypothesise. Last updated 2026-11-21.
+This file keeps three things apart: what published sources report, what was observed in other products, and what we only hypothesise. Last updated 2026-11-22.
 
 ## 1. Findings from sources (what the source says, read directly)
 
@@ -58,6 +58,6 @@ We copied no branding, text, assets or interface from these products.
 
 - H1: Having your *own approved* intention cue in view, plus keeping your alternative attempts side by side, makes it easier to recover your point than managing a well-prompted general chatbot. **Not tested.** See `docs/COMPARISON.md` for how to test it.
 - H2: Asking whether an apparent concession is *intentional*, instead of flagging it as a failure, keeps the user in charge of their goals. Not tested.
-- H3: Indian-language rehearsal with confirmed push-to-talk transcripts is usable for this moment. **Not tested. No live Sarvam call has been made from this repo.**
+- H3: Indian-language rehearsal by voice is usable for this moment. **Not tested with users.** On 2026-11-22 the Sarvam chat, speech-to-text and text-to-speech calls were exercised live in English and Hindi (see the README's Testing section), which shows the pipeline works, not that it helps.
 
 No user results exist. Nothing here is a clinical claim.

@@ -32,6 +32,16 @@ export const cueFields = z.object({
 
 const card = intentionFields.extend({ version: z.number().int().min(1).max(999) });
 
+const req = (max: number) => z.string().trim().min(1).max(max);
+/** The user-written situation, as sent to the server. The opening line and voice stay in the browser. */
+export const scenarioPayload = z.object({
+  title: req(120),
+  counterpartName: req(60),
+  counterpartRole: req(200),
+  situation: req(600),
+});
+export type ScenarioPayload = z.infer<typeof scenarioPayload>;
+
 const turn = z.object({
   id,
   speaker: z.enum(['user', 'actor']),
@@ -40,7 +50,7 @@ const turn = z.object({
 
 export const actorRequest = z.object({
   requestId: id,
-  scenarioId: id,
+  scenario: scenarioPayload,
   language: languageCode,
   card,
   transcript: z.array(turn).min(1).max(13),
@@ -50,9 +60,17 @@ export type ActorRequest = z.infer<typeof actorRequest>;
 
 export const actorOutput = z.object({ text: z.string().trim().min(1).max(600) });
 
+/** The counterpart's first line, when the user left it blank. */
+export const openingRequest = z.object({
+  requestId: id,
+  scenario: scenarioPayload,
+  language: languageCode,
+  card,
+});
+export type OpeningRequest = z.infer<typeof openingRequest>;
+
 export const coachRequest = z.object({
   requestId: id,
-  scenarioId: id,
   language: languageCode,
   transcript: z.array(turn.extend({ cardVersion: z.number().int() })).min(1).max(13),
   cards: z.array(card).min(1).max(20),
@@ -72,7 +90,6 @@ export const coachOutput = z.object({ finding: coachFinding.nullable() });
 
 export const intentionSuggestRequest = z.object({
   requestId: id,
-  scenarioId: id,
   language: languageCode,
   thoughts: z.string().trim().min(1).max(2000),
 });
@@ -80,17 +97,16 @@ export type IntentionSuggestRequest = z.infer<typeof intentionSuggestRequest>;
 
 export const cueSuggestRequest = z.object({
   requestId: id,
-  scenarioId: id,
   language: languageCode,
   card,
   userReplies: z.array(text(600)).max(6),
 });
 export type CueSuggestRequest = z.infer<typeof cueSuggestRequest>;
 
-export type ProviderName = 'mock' | 'sarvam';
+export type ProviderName = 'sarvam';
 
 export interface StatusResponse {
-  mode: 'mock' | 'live' | 'unavailable';
+  mode: 'live' | 'unavailable';
   chat: { provider: ProviderName; model: string | null; reason: string | null };
   speech: { available: boolean; reason: string | null; sttModel: string | null; ttsModel: string | null };
 }

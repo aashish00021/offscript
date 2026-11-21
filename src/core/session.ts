@@ -1,9 +1,12 @@
 import {
+  EMPTY_SCENARIO,
   LIMITS,
+  scenarioIsReady,
   type CueFields,
   type IntentionFields,
   type Message,
   type Phase,
+  type Scenario,
   type Session,
 } from './types';
 import { childrenOf, descendToLeaf, intentionForNode, latestIntention, pathTo, userTurnCount } from './tree';
@@ -12,7 +15,7 @@ export function initialSession(epoch = 0, language = 'en-IN'): Session {
   return {
     epoch,
     phase: 'setup',
-    scenarioId: null,
+    scenario: EMPTY_SCENARIO,
     language,
     messyThoughts: '',
     intentionDraft: null,
@@ -34,7 +37,7 @@ export function initialSession(epoch = 0, language = 'en-IN'): Session {
 
 export type Action =
   | { type: 'SET_LANGUAGE'; language: string }
-  | { type: 'CHOOSE_SCENARIO'; scenarioId: string }
+  | { type: 'SET_SCENARIO'; scenario: Scenario }
   | { type: 'SET_MESSY_THOUGHTS'; text: string }
   | { type: 'SET_INTENTION_DRAFT'; fields: IntentionFields | null }
   | { type: 'APPROVE_INTENTION'; id: string; fields: IntentionFields; now: number }
@@ -94,8 +97,22 @@ export function reducer(s: Session, a: Action): Session {
     case 'SET_LANGUAGE':
       return s.phase === 'setup' ? { ...s, language: a.language } : s;
 
-    case 'CHOOSE_SCENARIO':
-      return s.phase === 'setup' ? { ...s, scenarioId: a.scenarioId } : s;
+    case 'SET_SCENARIO': {
+      if (s.phase !== 'setup') return s;
+      const L = LIMITS.scenario;
+      const sc = a.scenario;
+      return {
+        ...s,
+        scenario: {
+          title: sc.title.slice(0, L.title),
+          counterpartName: sc.counterpartName.slice(0, L.counterpartName),
+          counterpartRole: sc.counterpartRole.slice(0, L.counterpartRole),
+          situation: sc.situation.slice(0, L.situation),
+          openingLine: sc.openingLine.slice(0, L.openingLine),
+          voice: sc.voice === 'shubh' ? 'shubh' : 'priya',
+        },
+      };
+    }
 
     case 'SET_MESSY_THOUGHTS':
       return { ...s, messyThoughts: a.text.slice(0, LIMITS.maxThoughtsChars) };
@@ -119,12 +136,13 @@ export function reducer(s: Session, a: Action): Session {
 
     case 'START_PRACTICE': {
       const card = latestIntention(s);
-      if (s.phase !== 'setup' || !s.scenarioId || !card) return s;
+      const openingLine = a.openingLine.trim().slice(0, LIMITS.maxMessageChars);
+      if (s.phase !== 'setup' || !scenarioIsReady(s.scenario) || !card || !openingLine) return s;
       const root: Message = {
         id: a.openingId,
         parentId: null,
         speaker: 'actor',
-        text: a.openingLine,
+        text: openingLine,
         intentionVersionId: card.id,
         createdAt: a.now,
         origin: 'scenario',

@@ -7,6 +7,7 @@ import {
   cueSuggestRequest,
   intentionSuggestRequest,
   languageCode,
+  openingRequest,
 } from '../src/shared/api';
 import type { Providers } from './config';
 import { ProviderError } from './providers/types';
@@ -94,6 +95,11 @@ export function createApp(providers: Providers, opts: { log?: (line: string) => 
     if (!out.success) throw new ProviderError('provider_bad_output', 'Counterpart reply was empty or too long.');
     return out.data;
   });
+  jsonRoute('/api/opening', openingRequest, async (body, signal) => {
+    const out = actorOutput.safeParse({ text: await providers.chat.opening(body, signal) });
+    if (!out.success) throw new ProviderError('provider_bad_output', 'Opening line was empty or too long.');
+    return out.data;
+  });
   jsonRoute('/api/coach', coachRequest, async (body, signal) => ({
     finding: await providers.chat.coach(structuredClone(body), signal),
   }));
@@ -133,10 +139,14 @@ export function createApp(providers: Providers, opts: { log?: (line: string) => 
 
   app.post('/api/speech/speak', express.json({ limit: '8kb' }), async (req, res) => {
     if (!providers.speech) return speechOff(res);
-    const parsed = z.object({ text: z.string().trim().min(1).max(600), language: languageCode }).safeParse(req.body);
+    const parsed = z
+      .object({ text: z.string().trim().min(1).max(600), language: languageCode, voice: z.enum(['priya', 'shubh']).optional() })
+      .safeParse(req.body);
     if (!parsed.success) return sendError(res, 400, 'invalid_request', 'Request did not match the expected shape.');
     try {
-      res.json(await providers.speech.speak(parsed.data.text, parsed.data.language, abortOnClose(req, res)));
+      res.json(
+        await providers.speech.speak(parsed.data.text, parsed.data.language, abortOnClose(req, res), parsed.data.voice),
+      );
     } catch (e) {
       handleProviderError(res, e);
     }

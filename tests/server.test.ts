@@ -3,12 +3,32 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../server/app';
 import { providersFromEnv } from '../server/config';
-import { createMockProvider } from '../server/providers/mock';
 import type { ChatProvider } from '../server/providers/types';
+
+/** A stand-in chat provider for routing tests. The app itself has no scripted mode. */
+function fakeChat(delayMs = 0): ChatProvider {
+  const wait = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), delayMs));
+  return {
+    name: 'sarvam',
+    model: 'fake',
+    actor: () => wait('So who covers Saturday?'),
+    opening: () => wait('We need to talk about the weekend.'),
+    coach: () => wait(null),
+    suggestIntention: () => wait({ needToSay: 'x', preferNotToAgree: '', couldOffer: '' }),
+    suggestCue: () => wait({ mainPoint: 'x', opening: '', fallback: '' }),
+  };
+}
+
+const scenario = {
+  title: 'Saying no to weekend work',
+  counterpartName: 'Ravi',
+  counterpartRole: 'my team lead',
+  situation: 'He wants me to work this weekend.',
+};
 
 const actorBody = (requestId: string) => ({
   requestId,
-  scenarioId: 'weekend-deadline',
+  scenario,
   language: 'en-IN',
   card: { version: 1, needToSay: "I'm not available this weekend.", preferNotToAgree: 'Working Saturday', couldOffer: '' },
   transcript: [{ id: 'root', speaker: 'actor', text: 'Saturday works, right?' }],
@@ -29,11 +49,11 @@ describe('server without credentials', () => {
   let ctx: Awaited<ReturnType<typeof serve>>;
   const logs: string[] = [];
   beforeAll(async () => {
-    ctx = await serve(providersFromEnv({ CHAT_PROVIDER: 'sarvam', MOCK_DELAY_MS: '0' }), logs);
+    ctx = await serve(providersFromEnv({}), logs);
   });
   afterAll(() => ctx.server.close());
 
-  it('reports live unavailable and does not describe itself as demo', async () => {
+  it('reports that the AI is unavailable without a key', async () => {
     const status = await (await fetch(ctx.base + '/api/status')).json();
     expect(status.mode).toBe('unavailable');
     expect(status.chat.reason).toMatch(/SARVAM_API_KEY is not set/);
@@ -65,6 +85,10 @@ describe('server without credentials', () => {
     expect(res.status).toBe(400);
     const bad = await post(ctx.base, '/api/actor', { ...actorBody('../../etc'), language: 'xx' });
     expect(bad.status).toBe(400);
+    const noName = await post(ctx.base, '/api/actor', { ...actorBody('t3'), scenario: { ...scenario, counterpartName: '  ' } });
+    expect(noName.status).toBe(400);
+    const tooLong = await post(ctx.base, '/api/actor', { ...actorBody('t4'), scenario: { ...scenario, situation: 'x'.repeat(601) } });
+    expect(tooLong.status).toBe(400);
   });
 
   it('logs metadata only, never message content', () => {
@@ -76,8 +100,8 @@ describe('server without credentials', () => {
 describe('server idempotency and failures', () => {
   it('runs the provider once for a duplicated request ID', async () => {
     let calls = 0;
-    const mock = createMockProvider(30);
-    const chat: ChatProvider = { ...mock, actor: async (r, s) => (calls++, mock.actor(r, s)) };
+    const base0 = fakeChat(30);
+    const chat: ChatProvider = { ...base0, actor: async (r, s) => (calls++, base0.actor(r, s)) };
     const base = providersFromEnv({});
     const ctx = await serve({ ...base, chat });
     const [a, b] = await Promise.all([post(ctx.base, '/api/actor', actorBody('dup')), post(ctx.base, '/api/actor', actorBody('dup'))]);
@@ -87,8 +111,7 @@ describe('server idempotency and failures', () => {
   });
 
   it('turns provider failure into a clean error the client can recover from', async () => {
-    const mock = createMockProvider(0);
-    const chat: ChatProvider = { ...mock, actor: async () => { throw new Error('boom secret-ish detail'); } };
+    const chat: ChatProvider = { ...fakeChat(), actor: async () => { throw new Error('boom secret-ish detail'); } };
     const ctx = await serve({ ...providersFromEnv({}), chat });
     const res = await post(ctx.base, '/api/actor', actorBody('f1'));
     expect(res.status).toBe(500);
@@ -97,10 +120,9 @@ describe('server idempotency and failures', () => {
   });
 
   it('coach receives a copy and cannot mutate the request it was given', async () => {
-    const mock = createMockProvider(0);
     let seen: unknown;
     const chat: ChatProvider = {
-      ...mock,
+      ...fakeChat(),
       coach: async (r) => {
         seen = r;
         (r.cards[0] as { needToSay: string }).needToSay = 'mutated';
@@ -110,7 +132,6 @@ describe('server idempotency and failures', () => {
     const ctx = await serve({ ...providersFromEnv({}), chat });
     const res = await post(ctx.base, '/api/coach', {
       requestId: 'c1',
-      scenarioId: 'weekend-deadline',
       language: 'en-IN',
       transcript: [{ id: 'u1', speaker: 'user', text: 'hi', cardVersion: 1 }],
       cards: [{ version: 1, needToSay: 'x', preferNotToAgree: '', couldOffer: '' }],
@@ -121,37 +142,17 @@ describe('server idempotency and failures', () => {
   });
 });
 
-describe('mock fixtures', () => {
-  it('flags a possible concession only from the user’s own words, as a proposal', async () => {
-    const mock = createMockProvider(0);
-    const f = await mock.coach(
-      {
-        requestId: 'c',
-        scenarioId: 'weekend-deadline',
-        language: 'en-IN',
-        transcript: [
-          { id: 'root', speaker: 'actor', text: 'Saturday?', cardVersion: 1 },
-          { id: 'u1', speaker: 'user', text: "I can't do Sunday. I could do a few hours Saturday morning.", cardVersion: 1 },
-        ],
-        cards: [{ version: 1, needToSay: "I'm not available this weekend.", preferNotToAgree: 'Working Saturday or Sunday.', couldOffer: '' }],
-      },
-      new AbortController().signal,
-    );
-    expect(f).toMatchObject({ kind: 'possible_change', messageId: 'u1', quote: 'I could do a few hours Saturday morning.' });
-  });
-
-  it('intention suggestion only reuses sentences the user wrote', async () => {
-    const thoughts = "Third weekend in a row. I need to say I'm not available. I could stay late Friday.";
-    const f = await createMockProvider(0).suggestIntention(
-      { requestId: 'i', scenarioId: 'weekend-deadline', language: 'en-IN', thoughts },
-      new AbortController().signal,
-    );
-    expect(f).toEqual({ needToSay: "I'm not available.", preferNotToAgree: '', couldOffer: 'I could stay late Friday.' });
-    const g = await createMockProvider(0).suggestIntention(
-      { requestId: 'j', scenarioId: 'weekend-deadline', language: 'en-IN', thoughts: "I'd prefer not to agree to working Sunday." },
-      new AbortController().signal,
-    );
-    expect(g.preferNotToAgree).toBe('Working Sunday.');
-    expect(g.needToSay).toBe('');
+describe('opening line', () => {
+  it('returns the provider line for a user-written situation', async () => {
+    const ctx = await serve({ ...providersFromEnv({}), chat: fakeChat() });
+    const res = await post(ctx.base, '/api/opening', {
+      requestId: 'o1',
+      scenario,
+      language: 'en-IN',
+      card: { version: 1, needToSay: "I'm not available this weekend.", preferNotToAgree: '', couldOffer: '' },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).text).toBe('We need to talk about the weekend.');
+    ctx.server.close();
   });
 });

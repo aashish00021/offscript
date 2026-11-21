@@ -6,7 +6,7 @@ import { providersFromEnv } from './config';
 try {
   process.loadEnvFile('.env');
 } catch {
-  // No .env file: mock mode unless variables come from the shell.
+  // No .env file: variables may still come from the shell.
 }
 
 const prod = process.env.NODE_ENV === 'production';
@@ -35,7 +35,7 @@ app.listen(port, '127.0.0.1', () => {
   const s = providers.status;
   console.log(`Offscript → http://localhost:${port}`);
   console.log(
-    `  chat: ${s.mode === 'mock' ? 'MOCK (scripted fixtures, no AI)' : s.mode === 'live' ? `LIVE via ${s.chat.provider}` : 'LIVE REQUESTED, UNAVAILABLE (no demo fallback)'}`,
+    `  chat: ${s.mode === 'live' ? `live via ${s.chat.provider}` : `UNAVAILABLE (${s.chat.reason})`}`,
   );
   console.log(`  speech: ${s.speech.available ? 'available' : `unavailable (${s.speech.reason})`}`);
 });
